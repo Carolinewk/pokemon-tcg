@@ -4449,3 +4449,38 @@ button:hover:enabled {
 .mobile-inspector .detail-title h2 {
   font-size: 24px;
 }
+
+.stadium-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 160px;
+  color: #cbdbb0;
+  border: 1px solid #bfd0a74d;
+  background: #123d3099;
+  padding: 3px 9px 3px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.stadium-chip img {
+  width: 22px;
+  height: 30px;
+  border-radius: 2px;
+}
+.stadium-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .stadium-chip {
+    max-width: 50px;
+    padding-right: 4px;
+  }
+  .stadium-chip span {
+    display: none;
+  }
+  .table-divider:has(.stadium-chip) {
+    gap: 10px;
+  }
+}

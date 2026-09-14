@@ -237,3 +237,24 @@ test("practice opponents complete 24 seeded games without losing or duplicating 
     assert.equal(s.status, "finished", `Game ${seed} must reach a winner`);
   }
 });
+
+test("Stadium replacements return the previous card to its owner, and remain inspectable", () => {
+  let s = makePractice(catalog);
+  const stadium = Object.values(catalog).find((c) =>
+    c.subtypes.includes("Stadium"),
+  );
+  const inject = (p) => {
+    const old = p.hand[0];
+    p.hand[0] = { uid: old.uid, card: stadium.id };
+    return old.uid;
+  };
+  s = move(s, "you", "play", { uid: inject(s.players[0]) });
+  assert.equal(s.stadium.owner, "you");
+  s = move(s, "you", "end");
+  s = move(s, "bot", "play", { uid: inject(s.players[1]) });
+  assert.equal(s.stadium.owner, "bot");
+  assert.ok(s.players[0].discard.some((h) => h.card === stadium.id));
+  s = move(s, "bot", "clearStadium");
+  assert.equal(s.stadium, null);
+  assert.ok(s.players[1].discard.some((h) => h.card === stadium.id));
+});

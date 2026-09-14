@@ -69,7 +69,7 @@ export type GameState = {
   log: { id: number; text: string; kind: string }[];
   winner: string | null;
   coin: string | null;
-  stadium: HandCard | null;
+  stadium: (HandCard & { owner: string }) | null;
   seen: string[];
   effect: { id: number; kind: string; text: string } | null;
 };
@@ -660,8 +660,11 @@ export function applyPost(
       }
       // Keep arbitrary printed effects explicit; tabletop tools resolve them.
       if (c.subtypes.includes("Stadium")) {
-        if (s.stadium) p.discard.push(s.stadium);
-        s.stadium = h;
+        if (s.stadium) {
+          const owner = s.players.find((q) => q.id === s.stadium?.owner);
+          owner?.discard.push({ uid: s.stadium.uid, card: s.stadium.card });
+        }
+        s.stadium = { ...h, owner: p.id };
       } else if (c.subtypes.includes("Pokémon Tool")) {
         const target = findPiece(p, data.target);
         if (!target) return fail("Choose a Pokémon for this Tool.");
@@ -802,6 +805,18 @@ export function applyPost(
       `${p.name} drew ${n} card${n > 1 ? "s" : ""} (card effect).`,
       "manual",
     );
+    return { state: s };
+  }
+  if (post.action === "clearStadium") {
+    if (!s.stadium) return fail("There is no Stadium in play.");
+    const owner = s.players.find((q) => q.id === s.stadium?.owner);
+    owner?.discard.push({ uid: s.stadium.uid, card: s.stadium.card });
+    log(
+      s,
+      `${p.name} discarded ${catalog[s.stadium.card].name} (card effect).`,
+      "manual",
+    );
+    s.stadium = null;
     return { state: s };
   }
   if (post.action === "shuffle") {

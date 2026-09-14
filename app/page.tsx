@@ -1382,6 +1382,18 @@ export default function Home() {
                 </div>
                 <div className="table-divider">
                   <span />
+                  {state.stadium && (
+                    <button
+                      className="stadium-chip"
+                      aria-label={`Inspect Stadium ${catalog[state.stadium.card].name}`}
+                      onClick={() =>
+                        inspect({ card: state.stadium!.card, zone: "catalog" })
+                      }
+                    >
+                      <CardImage card={catalog[state.stadium.card]} small />
+                      <span>{catalog[state.stadium.card].name}</span>
+                    </button>
+                  )}
                   <div className="turn-token">
                     <CircleDot size={20} />
                     <b>
@@ -2406,6 +2418,21 @@ export default function Home() {
                     Flip
                   </button>
                 </div>
+                {state.stadium && (
+                  <div className="tool-row">
+                    <div>
+                      <h3>Stadium in play</h3>
+                      <p>{catalog[state.stadium.card].name}</p>
+                    </div>
+                    <button
+                      className="button"
+                      onClick={() => send("clearStadium")}
+                    >
+                      <Trash2 size={15} />
+                      Discard
+                    </button>
+                  </div>
+                )}
                 <div className="tool-target">
                   <label className="form-label">
                     Pokémon to adjust
