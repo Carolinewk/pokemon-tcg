@@ -4462,6 +4462,120 @@ button:hover:enabled {
   }
 }
 
+/* Compact starter decks keep selection controls readable at half the footprint. */
+.starter-decks-label {
+  margin: 15px 0 9px;
+}
+.starter-deck-grid {
+  gap: 12px;
+}
+.starter-deck-grid .deck-art {
+  height: 130px;
+  min-height: 0;
+}
+.starter-deck-grid .deck-art > img {
+  width: 70px;
+  transform: rotate(10deg) translateY(15px);
+}
+.starter-deck-grid .deck-water .deck-art > img {
+  transform: rotate(-8deg) translateY(15px);
+}
+.starter-deck-grid .deck-type {
+  top: 10px;
+  left: 10px;
+  gap: 5px;
+}
+.starter-deck-grid .deck-art-word {
+  top: auto;
+  bottom: 17px;
+  left: 10px;
+  right: 10px;
+  font-size: 42px;
+  letter-spacing: -2px;
+}
+.starter-deck-grid .deck-info {
+  padding: 12px;
+}
+.starter-deck-grid .deck-info h3 {
+  font-size: 18px;
+  line-height: 1.25;
+}
+.starter-deck-grid .deck-info p {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.starter-deck-grid .deck-counts {
+  margin-top: 6px;
+  gap: 6px;
+}
+.starter-deck-grid .deck-buttons {
+  margin-top: 8px;
+  padding-top: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.starter-deck-grid .deck-buttons > .button {
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 14px;
+}
+.starter-deck-grid .deck-buttons > .icon-button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+@media (min-width: 601px) and (max-width: 1000px) {
+  .starter-deck-grid .deck-art {
+    height: 100px;
+  }
+  .starter-deck-grid .deck-art > img {
+    width: 58px;
+  }
+  .starter-deck-grid .deck-info {
+    padding: 9px;
+  }
+}
+@media (max-width: 600px) {
+  .starter-deck-grid .deck-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .starter-deck-grid .deck-art {
+    height: 100%;
+  }
+  .starter-deck-grid .deck-art > img {
+    width: 54px;
+    top: auto;
+    bottom: 8px;
+    transform: rotate(-8deg);
+  }
+  .starter-deck-grid .deck-water .deck-art > img {
+    transform: rotate(7deg);
+  }
+  .starter-deck-grid .deck-type {
+    inset: 8px 4px auto;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .starter-deck-grid .deck-type > span {
+    font-size: 12px;
+  }
+  .starter-deck-grid .deck-art-word {
+    display: none;
+  }
+  .starter-deck-grid .deck-info {
+    padding: 8px;
+  }
+  .starter-deck-grid .deck-counts {
+    margin-top: 4px;
+  }
+  .starter-deck-grid .deck-buttons {
+    margin-top: 6px;
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
 /* The hand sits inside the felt board; only the inspector scrolls. */
 .app-shell.is-playing {
   --hand-height: clamp(112px, 21dvh, 184px);

@@ -1690,11 +1690,11 @@ export default function Home() {
                 Build a deck
               </button>
             </div>
-            <div className="section-label">
+            <div className="section-label starter-decks-label">
               <h2>Ready to play</h2>
               <span>60 cards · unlimited format</span>
             </div>
-            <div className="deck-grid">
+            <div className="deck-grid starter-deck-grid">
               {STARTERS.map((d) => (
                 <div
                   className={`deck-card deck-${d.type.toLowerCase()} ${selectedDeck === d.id ? "chosen" : ""}`}
