@@ -1208,7 +1208,7 @@ export default function Home() {
     </>
   );
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${screen === "table" ? "is-playing" : ""}`}>
       <header className="app-header">
         <button className="brand" onClick={() => setScreen("table")}>
           <span className="brand-icon">
@@ -1313,7 +1313,7 @@ export default function Home() {
                         ? "Connecting to table…"
                         : "Connection unavailable"}
                   <i />
-                  Unlimited format
+                  <span className="format-label">Unlimited format</span>
                 </span>
                 <button onClick={() => setDialog("help")}>
                   <CircleHelp size={15} />

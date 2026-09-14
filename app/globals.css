@@ -4484,3 +4484,339 @@ button:hover:enabled {
     gap: 10px;
   }
 }
+
+/* The table and hand share one viewport; only the inspector scrolls. */
+.app-shell.is-playing {
+  --play-header-height: 64px;
+  --hand-height: clamp(112px, 21dvh, 184px);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.is-playing .app-header {
+  height: var(--play-header-height);
+  flex: 0 0 var(--play-header-height);
+}
+.is-playing .workspace {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  margin: 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+}
+.is-playing .play-surface {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) var(--hand-height);
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  padding-top: 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.is-playing .page-heading {
+  align-items: center;
+}
+.is-playing .table-meta {
+  margin: 0;
+  min-height: 20px;
+}
+.is-playing .game-table {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) 28px minmax(0, 1fr) 46px;
+  min-height: 0;
+  padding: 0;
+}
+.is-playing .felt-topline,
+.is-playing .felt-bottomline {
+  height: auto;
+  min-height: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.is-playing .board-half {
+  container: table-half / size;
+  min-height: 0;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.is-playing .pokemon-zone {
+  height: 100%;
+  min-height: 0;
+  justify-content: space-evenly;
+}
+.is-playing .bench-line {
+  gap: clamp(4px, 1.4cqw, 14px);
+}
+.is-playing .table-slot.active {
+  width: min(100px, 37cqh, 16cqw);
+  height: auto;
+  aspect-ratio: 245 / 342;
+}
+.is-playing .table-slot.bench {
+  width: min(70px, 23cqh, 10.5cqw);
+  height: auto;
+  aspect-ratio: 245 / 342;
+}
+.is-playing .active-line,
+.is-playing .bench-label {
+  flex: none;
+  margin: 0;
+}
+.is-playing .bench-label {
+  line-height: 14px;
+  font-size: 12px;
+}
+.is-playing .table-divider {
+  height: auto;
+  min-height: 0;
+  margin: 0 20px;
+}
+.is-playing .stadium-chip {
+  max-height: 28px;
+  padding-block: 2px;
+}
+.is-playing .stadium-chip img {
+  height: 22px;
+  width: auto;
+}
+.is-playing .pile-area {
+  gap: 4px;
+}
+.is-playing .deck-pile {
+  height: min(58px, 26cqh);
+  width: auto;
+  aspect-ratio: 245 / 342;
+}
+.is-playing .discard-pile {
+  height: min(54px, 24cqh);
+  width: auto;
+  aspect-ratio: 245 / 342;
+}
+.is-playing .pile-caption {
+  margin: 0;
+  line-height: 16px;
+}
+.is-playing .prize-grid {
+  grid-template-columns: repeat(3, auto);
+  gap: min(6px, 2cqh);
+}
+.is-playing .prize-mini {
+  width: min(25px, 14cqh, 5cqw);
+  height: auto;
+  aspect-ratio: 245 / 342;
+}
+.is-playing .prize-area > span {
+  margin-top: 6px;
+}
+.is-playing .hand-panel {
+  display: grid;
+  grid-template-rows: 26px minmax(0, 1fr);
+  min-height: 0;
+  margin: 0;
+}
+.is-playing .hand-toolbar {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.is-playing .hand-toolbar > span,
+.is-playing .hand-toolbar > button {
+  flex-shrink: 0;
+}
+.is-playing .hand-cards {
+  container-type: size;
+  min-height: 0;
+  min-width: 0;
+  padding: 24px 12px 10px;
+}
+.is-playing .hand-card {
+  --hand-card-width: min(104px, 71.64cqh);
+  flex: 0 1 var(--hand-card-width);
+  width: var(--hand-card-width);
+  height: auto;
+  aspect-ratio: 245 / 342;
+  margin-left: -3px;
+}
+.is-playing .hand-card:first-child {
+  margin-left: 0;
+}
+.is-playing .hand-card > img,
+.is-playing .hand-card > .card-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.is-playing .hand-card:hover,
+.is-playing .hand-card.selected {
+  transform: translateY(-8px) rotate(0) scale(1.1);
+}
+.is-playing .hand-hint,
+.is-playing .table-footer {
+  display: none;
+}
+.is-playing .empty-hand {
+  align-self: center;
+  padding: 0;
+}
+.is-playing .inspector {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+.is-playing .room-overlay {
+  inset: 44px 0 46px;
+}
+@container table-half (max-height: 140px) {
+  .is-playing .bench-label,
+  .is-playing .pile-caption,
+  .is-playing .prize-area > span {
+    display: none;
+  }
+}
+@media (max-height: 760px) {
+  .app-shell.is-playing {
+    --play-header-height: 56px;
+    --hand-height: clamp(96px, 20dvh, 152px);
+  }
+  .is-playing .play-surface {
+    padding-top: 6px;
+    gap: 4px;
+  }
+  .is-playing .game-table {
+    grid-template-rows: 38px minmax(0, 1fr) 24px minmax(0, 1fr) 42px;
+  }
+  .is-playing .page-heading h1 {
+    font-size: 21px;
+  }
+  .is-playing .table-heading-actions .button {
+    min-height: 32px;
+    padding-block: 6px;
+  }
+  .is-playing .trainer-profile small,
+  .is-playing .hand-toolbar > p {
+    display: none;
+  }
+  .is-playing .opponent-hand > .card-back {
+    height: 30px;
+    width: 21px;
+  }
+  .is-playing .room-overlay {
+    inset: 38px 0 42px;
+  }
+}
+@media (max-width: 800px) {
+  .is-playing .play-surface {
+    padding-inline: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .app-shell.is-playing {
+    --play-header-height: 52px;
+    --hand-height: clamp(100px, 19dvh, 160px);
+  }
+  .is-playing .app-header {
+    margin-bottom: 38px;
+  }
+  .is-playing .main-nav {
+    top: var(--play-header-height);
+    height: 38px;
+  }
+  .is-playing .brand small,
+  .is-playing .title-line .soft-badge,
+  .is-playing .format-label {
+    display: none;
+  }
+  .is-playing .play-surface {
+    padding-inline: 8px;
+  }
+  .is-playing .title-line {
+    flex-wrap: nowrap;
+  }
+  .is-playing .title-line h1 {
+    width: auto;
+    font-size: 21px;
+  }
+  .is-playing .table-meta > span {
+    max-width: none;
+  }
+  .is-playing .table-heading-actions {
+    padding-top: 0;
+  }
+  .is-playing .prize-grid {
+    grid-template-columns: repeat(2, auto);
+  }
+  .is-playing .hand-card {
+    margin-left: -8px;
+  }
+}
+@media (max-height: 540px) {
+  .app-shell.is-playing {
+    --play-header-height: 44px;
+    --hand-height: 96px;
+  }
+  .is-playing .play-surface {
+    grid-template-rows: auto minmax(0, 1fr) var(--hand-height);
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .is-playing .table-meta,
+  .is-playing .brand small {
+    display: none;
+  }
+  .is-playing .game-table {
+    grid-template-rows: 32px minmax(0, 1fr) 20px minmax(0, 1fr) 36px;
+  }
+  .is-playing .trainer-avatar {
+    height: 26px;
+    width: 26px;
+  }
+  .is-playing .end-turn {
+    min-height: 30px;
+    padding-block: 5px;
+  }
+  .is-playing .room-overlay {
+    inset: 32px 0 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-playing .hand-card:hover,
+  .is-playing .hand-card.selected {
+    transform: none;
+  }
+}
+.is-playing .room-waiting {
+  max-height: 100%;
+  overflow-y: auto;
+  gap: 8px;
+  padding: 12px 20px;
+}
+.is-playing .room-waiting > svg {
+  display: none;
+}
+.is-playing .room-waiting h2 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+.is-playing .room-waiting p,
+.is-playing .room-waiting > span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.is-playing .room-code {
+  padding-block: 7px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+.is-playing .victory-banner {
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  gap: 10px;
+  padding: 20px;
+}
