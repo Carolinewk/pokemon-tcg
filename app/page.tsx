@@ -206,18 +206,20 @@ function Choice({
   onChange,
   options,
   label,
+  collection = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   label: string;
+  collection?: boolean;
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="select-field" aria-label={label}>
         <SelectValue placeholder={label} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className={collection ? "collection-ui collection-menu" : undefined}>
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
             {o.label}
@@ -1665,11 +1667,11 @@ export default function Home() {
             </Sheet>
           </>
         ) : screen === "decks" ? (
-          <section className="decks-page">
+          <section className="decks-page collection-ui">
             <div className="collection-heading">
               <div>
-                <span className="eyebrow">YOUR NEXT GREAT MATCH</span>
-                <h1>A deck for every Trainer.</h1>
+                <span className="eyebrow">TRAINER’S PC</span>
+                <h1>My decks</h1>
                 <p>Pick a ready-to-play deck, or make it your own.</p>
               </div>
               <button
@@ -1871,16 +1873,14 @@ export default function Home() {
             </div>
           </section>
         ) : (
-          <section className={`library-page ${editing ? "building-deck" : ""}`}>
+          <section className={`library-page collection-ui ${editing ? "building-deck" : ""}`}>
             <div className="collection-heading">
               <div>
                 <span className="eyebrow">
-                  THE WHOLE COLLECTION, AT YOUR FINGERTIPS
+                  POKÉMON TCG
                 </span>
                 <h1>
-                  {editing
-                    ? "Build your next favorite."
-                    : "Find your next favorite."}
+                  {editing ? "Deck builder" : "Card library"}
                 </h1>
                 <p>
                   {loaded
@@ -1941,6 +1941,7 @@ export default function Home() {
                     )}
                   </label>
                   <Choice
+                    collection
                     label="Card type"
                     value={typeFilter}
                     onChange={(v) => {
@@ -1958,6 +1959,7 @@ export default function Home() {
                     ]}
                   />
                   <Choice
+                    collection
                     label="Card set"
                     value={setFilter}
                     onChange={(v) => {
@@ -2677,7 +2679,7 @@ export default function Home() {
           if (!open) setInspectorOpen(false);
         }}
       >
-        <DialogContent className="catalog-detail-dialog">
+        <DialogContent className="catalog-detail-dialog collection-ui">
           <DialogTitle>{selectedCard?.name}</DialogTitle>
           <DialogDescription>
             {selectedCard?.set} · {selectedCard?.rarity}
