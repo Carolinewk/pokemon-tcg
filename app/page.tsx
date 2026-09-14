@@ -249,6 +249,8 @@ export default function Home() {
     [loaded, setLoaded] = useState(false),
     [catalogError, setCatalogError] = useState(false);
   const [screen, setScreen] = useState<"table" | "cards" | "decks">("table");
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const workspaceRef = useRef<HTMLElement>(null);
   const [state, setState] = useState<GameState>(() =>
     makePractice(STARTER_CATALOG),
   );
@@ -1207,65 +1209,99 @@ export default function Home() {
       </div>
     </>
   );
+  const navigateTo = (next: typeof screen) => {
+    if (next === "cards") setEditing(null);
+    setScreen(next);
+    setNavigationOpen(false);
+    workspaceRef.current?.focus({ preventScroll: true });
+  };
   return (
     <div className={`app-shell ${screen === "table" ? "is-playing" : ""}`}>
-      <header className="app-header">
-        <button className="brand" onClick={() => setScreen("table")}>
-          <span className="brand-icon">
-            <CircleDot size={26} strokeWidth={1.8} />
-          </span>
-          <span>
-            poké<span className="brand-light">table</span>
-            <small>TRADING CARD GAME</small>
-          </span>
+      <div
+        className={`navigation-reveal ${navigationOpen ? "is-open" : ""}`}
+        onPointerLeave={(event) => {
+          if (event.pointerType !== "mouse") return;
+          setNavigationOpen(false);
+          const focused = document.activeElement;
+          if (
+            focused &&
+            event.currentTarget.contains(focused) &&
+            !focused.matches(":focus-visible")
+          ) {
+            workspaceRef.current?.focus({ preventScroll: true });
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setNavigationOpen(false);
+            workspaceRef.current?.focus({ preventScroll: true });
+          }
+        }}
+      >
+        <button
+          className="navigation-handle"
+          aria-label={navigationOpen ? "Hide navigation" : "Show navigation"}
+          aria-expanded={navigationOpen}
+          aria-controls="top-navigation"
+          onClick={() => {
+            setNavigationOpen(!navigationOpen);
+            workspaceRef.current?.focus({ preventScroll: true });
+          }}
+        >
+          <span aria-hidden="true" />
         </button>
-        <nav className="main-nav" aria-label="Main navigation">
-          <button
-            className={screen === "table" ? "current" : ""}
-            onClick={() => setScreen("table")}
-          >
-            <Swords size={17} />
-            Play
-          </button>
-          <button
-            className={screen === "decks" ? "current" : ""}
-            onClick={() => setScreen("decks")}
-          >
-            <Layers3 size={17} />
-            My decks
-          </button>
-          <button
-            className={screen === "cards" ? "current" : ""}
-            onClick={() => {
-              setEditing(null);
-              setScreen("cards");
-            }}
-          >
-            <LibraryBig size={17} />
-            Card library
-          </button>
-        </nav>
-        <div className="header-end">
-          <span className="vibinet-label">
-            <Radio size={13} /> Powered by VibiNet
-          </span>
-          <button
-            className="icon-button sound-toggle"
-            aria-label={sound ? "Mute sounds" : "Enable sounds"}
-            onClick={() => setSound(!sound)}
-          >
-            {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
-          </button>
-          <button
-            className="avatar"
-            onClick={() => setDialog("room")}
-            aria-label="Trainer profile"
-          >
-            {name.slice(0, 1).toUpperCase()}
-          </button>
-        </div>
-      </header>
+        <header className="app-header" id="top-navigation">
+          <nav className="main-nav" aria-label="Main navigation">
+            <button
+              className={screen === "table" ? "current" : ""}
+              aria-current={screen === "table" ? "page" : undefined}
+              onClick={() => navigateTo("table")}
+            >
+              <Swords size={17} />
+              Play
+            </button>
+            <button
+              className={screen === "decks" ? "current" : ""}
+              aria-current={screen === "decks" ? "page" : undefined}
+              onClick={() => navigateTo("decks")}
+            >
+              <Layers3 size={17} />
+              My decks
+            </button>
+            <button
+              className={screen === "cards" ? "current" : ""}
+              aria-current={screen === "cards" ? "page" : undefined}
+              onClick={() => navigateTo("cards")}
+            >
+              <LibraryBig size={17} />
+              Card library
+            </button>
+          </nav>
+          <div className="header-end">
+            <span className="vibinet-label">
+              <Radio size={13} /> Powered by VibiNet
+            </span>
+            <button
+              className="icon-button sound-toggle"
+              aria-label={sound ? "Mute sounds" : "Enable sounds"}
+              onClick={() => setSound(!sound)}
+            >
+              {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
+            </button>
+            <button
+              className="avatar"
+              onClick={() => setDialog("room")}
+              aria-label="Trainer profile"
+            >
+              {name.slice(0, 1).toUpperCase()}
+            </button>
+          </div>
+        </header>
+      </div>
       <main
+        ref={workspaceRef}
+        tabIndex={-1}
+        onPointerDown={() => setNavigationOpen(false)}
         className={`workspace ${screen !== "table" ? "library-workspace" : ""}`}
       >
         {screen === "table" ? (
@@ -1275,7 +1311,20 @@ export default function Home() {
                 <div className="title-line">
                   <h1>The play table</h1>
                   <span className="soft-badge">
-                    {mode === "practice" ? "PRACTICE" : "FRIEND MATCH"}
+                    {mode === "practice" ? (
+                      "PRACTICE"
+                    ) : (
+                      <>
+                        <span
+                          className={`live-dot ${connection !== "connected" ? "pending" : ""}`}
+                        />
+                        {connection === "connected"
+                          ? `ROOM ${room}`
+                          : connection === "connecting"
+                            ? "CONNECTING…"
+                            : "OFFLINE"}
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="table-heading-actions">
@@ -1299,26 +1348,6 @@ export default function Home() {
                     <ArrowUpRight size={15} />
                   </button>
                 </div>
-              </div>
-              <div className="table-meta">
-                <span>
-                  <span
-                    className={`live-dot ${mode === "online" && connection !== "connected" ? "pending" : ""}`}
-                  />
-                  {mode === "practice"
-                    ? "Practice with Misty"
-                    : connection === "connected"
-                      ? `Room ${room}`
-                      : connection === "connecting"
-                        ? "Connecting to table…"
-                        : "Connection unavailable"}
-                  <i />
-                  <span className="format-label">Unlimited format</span>
-                </span>
-                <button onClick={() => setDialog("help")}>
-                  <CircleHelp size={15} />
-                  How to play
-                </button>
               </div>
               <div
                 className={`game-table ${myTurn ? "your-turn" : ""} ${burst?.kind === "attack" ? "impact" : ""}`}
