@@ -206,13 +206,6 @@ button:hover:enabled {
   align-items: center;
   gap: 20px;
 }
-.vibinet-label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #7e867d;
-}
 .icon-button {
   display: inline-flex;
   justify-content: center;
@@ -2641,9 +2634,6 @@ button:hover:enabled {
   .app-header {
     padding: 0 23px;
     gap: 18px;
-  }
-  .vibinet-label {
-    display: none;
   }
   .main-nav {
     gap: 0;

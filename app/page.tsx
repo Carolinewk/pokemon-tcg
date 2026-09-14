@@ -39,7 +39,6 @@ import {
   Trophy,
   SlidersHorizontal,
   LoaderCircle,
-  Radio,
   Eye,
   ShieldCheck,
   BookOpen,
@@ -1278,9 +1277,6 @@ export default function Home() {
             </button>
           </nav>
           <div className="header-end">
-            <span className="vibinet-label">
-              <Radio size={13} /> Powered by VibiNet
-            </span>
             <button
               className="icon-button sound-toggle"
               aria-label={sound ? "Mute sounds" : "Enable sounds"}
