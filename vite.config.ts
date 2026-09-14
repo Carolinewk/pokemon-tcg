@@ -49,6 +49,19 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Load the UI dependencies together so discovery cannot replace shared
+    // React modules while the first client render is already in progress.
+    optimizeDeps: {
+      include: [
+        "class-variance-authority",
+        "clsx",
+        "lucide-react",
+        "next-themes",
+        "radix-ui",
+        "sonner",
+        "tailwind-merge",
+      ],
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
