@@ -1308,25 +1308,20 @@ export default function Home() {
           <>
             <section className="play-surface">
               <div className="page-heading">
-                <div className="title-line">
-                  <h1>The play table</h1>
-                  <span className="soft-badge">
-                    {mode === "practice" ? (
-                      "PRACTICE"
-                    ) : (
-                      <>
-                        <span
-                          className={`live-dot ${connection !== "connected" ? "pending" : ""}`}
-                        />
-                        {connection === "connected"
-                          ? `ROOM ${room}`
-                          : connection === "connecting"
-                            ? "CONNECTING…"
-                            : "OFFLINE"}
-                      </>
-                    )}
-                  </span>
-                </div>
+                {mode === "online" && (
+                  <div className="title-line">
+                    <span className="soft-badge">
+                      <span
+                        className={`live-dot ${connection !== "connected" ? "pending" : ""}`}
+                      />
+                      {connection === "connected"
+                        ? `ROOM ${room}`
+                        : connection === "connecting"
+                          ? "CONNECTING…"
+                          : "OFFLINE"}
+                    </span>
+                  </div>
+                )}
                 <div className="table-heading-actions">
                   <button
                     className="text-button"

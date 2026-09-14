@@ -4524,6 +4524,7 @@ button:hover:enabled {
   padding: 3px 5px;
 }
 .is-playing .table-heading-actions {
+  margin-left: auto;
   gap: 8px;
   padding-top: 0;
 }
