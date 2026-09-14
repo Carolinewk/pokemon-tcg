@@ -1690,72 +1690,6 @@ export default function Home() {
                 Build a deck
               </button>
             </div>
-            <div className="section-label starter-decks-label">
-              <h2>Ready to play</h2>
-              <span>60 cards · unlimited format</span>
-            </div>
-            <div className="deck-grid starter-deck-grid">
-              {STARTERS.map((d) => (
-                <div
-                  className={`deck-card deck-${d.type.toLowerCase()} ${selectedDeck === d.id ? "chosen" : ""}`}
-                  key={d.id}
-                >
-                  <div className="deck-art">
-                    <div className="deck-type">
-                      <Energy type={d.type} size={25} />
-                      <span>{d.type} deck</span>
-                    </div>
-                    <CardImage card={catalog[d.cover]} />
-                    <span className="deck-art-word">
-                      {d.type.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="deck-info">
-                    <h3>{d.name}</h3>
-                    <p>{d.description}</p>
-                    <div className="deck-counts">
-                      <span>
-                        <Layers3 size={14} />
-                        60 cards
-                      </span>
-                      <span>Classic collection</span>
-                    </div>
-                    <div className="deck-buttons">
-                      <button
-                        className={`button ${selectedDeck === d.id ? "selected-button" : "primary"}`}
-                        onClick={() => {
-                          setSelectedDeck(d.id);
-                          toast.success(
-                            `${d.name} selected for your next match.`,
-                          );
-                        }}
-                      >
-                        {selectedDeck === d.id ? (
-                          <Check size={16} />
-                        ) : (
-                          <Swords size={16} />
-                        )}{" "}
-                        {selectedDeck === d.id ? "Selected" : "Select deck"}
-                      </button>
-                      <button
-                        className="icon-button"
-                        aria-label={`Customize ${d.name}`}
-                        onClick={() => {
-                          setEditing({
-                            ...d,
-                            id: `custom-${crypto.randomUUID()}`,
-                            name: d.name + " remix",
-                          });
-                          setScreen("cards");
-                        }}
-                      >
-                        <SlidersHorizontal size={19} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
             <div className="section-label custom-label">
               <h2>
                 Your decks <span>{customDecks.length}</span>
@@ -1858,6 +1792,72 @@ export default function Home() {
                 ))}
               </div>
             )}
+            <div className="section-label starter-decks-label">
+              <h2>Ready to play</h2>
+              <span>60 cards · unlimited format</span>
+            </div>
+            <div className="deck-grid starter-deck-grid">
+              {STARTERS.map((d) => (
+                <div
+                  className={`deck-card deck-${d.type.toLowerCase()} ${selectedDeck === d.id ? "chosen" : ""}`}
+                  key={d.id}
+                >
+                  <div className="deck-art">
+                    <div className="deck-type">
+                      <Energy type={d.type} size={25} />
+                      <span>{d.type} deck</span>
+                    </div>
+                    <CardImage card={catalog[d.cover]} />
+                    <span className="deck-art-word">
+                      {d.type.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="deck-info">
+                    <h3>{d.name}</h3>
+                    <p>{d.description}</p>
+                    <div className="deck-counts">
+                      <span>
+                        <Layers3 size={14} />
+                        60 cards
+                      </span>
+                      <span>Classic collection</span>
+                    </div>
+                    <div className="deck-buttons">
+                      <button
+                        className={`button ${selectedDeck === d.id ? "selected-button" : "primary"}`}
+                        onClick={() => {
+                          setSelectedDeck(d.id);
+                          toast.success(
+                            `${d.name} selected for your next match.`,
+                          );
+                        }}
+                      >
+                        {selectedDeck === d.id ? (
+                          <Check size={16} />
+                        ) : (
+                          <Swords size={16} />
+                        )}{" "}
+                        {selectedDeck === d.id ? "Selected" : "Select deck"}
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Customize ${d.name}`}
+                        onClick={() => {
+                          setEditing({
+                            ...d,
+                            id: `custom-${crypto.randomUUID()}`,
+                            name: d.name + " remix",
+                          });
+                          setScreen("cards");
+                        }}
+                      >
+                        <SlidersHorizontal size={19} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="deck-footnote">
               <ShieldCheck size={17} />
               <p>
