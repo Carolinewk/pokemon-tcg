@@ -4473,7 +4473,12 @@ button:hover:enabled {
   overflow: hidden;
 }
 .is-playing .workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 32vw, 500px);
+  --table-preview-width: clamp(320px, 32vw, 500px);
+  --table-gutter: 62px;
+  --table-board-growth: calc(
+    (min(100vw, 1720px) - var(--table-preview-width) - var(--table-gutter)) * 0.1
+  );
+  grid-template-columns: minmax(0, 1fr) calc(var(--table-preview-width) * 0.9);
   width: 100%;
   flex: 1;
   min-height: 0;
@@ -4490,6 +4495,13 @@ button:hover:enabled {
   width: 100%;
   padding-top: 12px;
   padding-bottom: max(8px, env(safe-area-inset-bottom));
+  /* Reclaim outer gutters for the wider board without overflowing the viewport. */
+  padding-inline: max(
+    0px,
+    calc(
+      (var(--table-gutter) + var(--table-preview-width) * 0.1 - var(--table-board-growth)) / 2
+    )
+  );
 }
 .is-playing .page-heading {
   align-items: center;
@@ -4725,6 +4737,16 @@ button:hover:enabled {
   }
   .is-playing .room-overlay {
     inset: 38px 0 calc(42px + var(--hand-height));
+  }
+}
+@media (max-width: 1200px) {
+  .is-playing .workspace {
+    --table-gutter: 43px;
+  }
+}
+@media (max-width: 1000px) {
+  .is-playing .workspace {
+    --table-gutter: 32px;
   }
 }
 @media (max-width: 800px) {
