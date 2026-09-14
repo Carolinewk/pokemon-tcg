@@ -4541,10 +4541,44 @@ button:hover:enabled {
   height: 13px;
 }
 .is-playing .game-table {
+  --board-content-scale: 1.1;
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr) 28px minmax(0, 1fr) 46px var(--hand-height);
   min-height: 0;
   padding: 0;
+}
+/* Enlarge playing pieces and controls while preserving the board's footprint. */
+.is-playing .game-table :is(
+  .table-slot,
+  .prize-area,
+  .pile-area,
+  .active-label,
+  .bench-label,
+  .trainer-profile,
+  .opponent-hand,
+  .turn-actions,
+  .turn-token,
+  .stadium-chip,
+  .hand-toolbar > *,
+  .hand-card
+) {
+  scale: var(--board-content-scale);
+}
+.is-playing .game-table :is(
+  .trainer-profile,
+  .prize-area,
+  .active-label,
+  .hand-toolbar > span
+) {
+  transform-origin: left center;
+}
+.is-playing .game-table :is(
+  .opponent-hand,
+  .pile-area,
+  .turn-actions,
+  .hand-toolbar > button
+) {
+  transform-origin: right center;
 }
 .is-playing .felt-topline,
 .is-playing .felt-bottomline {
