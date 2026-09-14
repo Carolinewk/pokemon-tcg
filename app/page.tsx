@@ -78,6 +78,7 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeToggle } from "@/components/theme-provider";
 import { toast } from "sonner";
 import starterData from "@/lib/starter-cards.json";
 import {
@@ -1277,6 +1278,7 @@ export default function Home() {
             </button>
           </nav>
           <div className="header-end">
+            <ThemeToggle />
             <button
               className="icon-button sound-toggle"
               aria-label={sound ? "Mute sounds" : "Enable sounds"}
@@ -2769,7 +2771,7 @@ export default function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Toaster position="bottom-center" theme="light" richColors closeButton />
+      <Toaster position="bottom-center" richColors closeButton />
     </div>
   );
 }

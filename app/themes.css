@@ -1,0 +1,357 @@
+.theme-light-icon,
+.dark .theme-dark-icon {
+  display: inline-flex;
+}
+.theme-dark-icon,
+.dark .theme-light-icon {
+  display: none;
+}
+
+/* Shared tokens also theme portalled menus, dialogs, sheets, and toasts. */
+:root.dark {
+  color-scheme: dark;
+  --background: #0e1613;
+  --foreground: #e5eee8;
+  --card: #17231d;
+  --card-foreground: #e5eee8;
+  --popover: #1a2821;
+  --popover-foreground: #e5eee8;
+  --primary: #91dbad;
+  --primary-foreground: #102c1d;
+  --secondary: #22352b;
+  --secondary-foreground: #d3e8db;
+  --muted: #1e2e25;
+  --muted-foreground: #a4b7aa;
+  --accent: #2a4233;
+  --accent-foreground: #b7eccb;
+  --destructive: #f09c90;
+  --border: #34483b;
+  --input: #405a48;
+  --ring: #91dbad;
+  --sidebar: #17231d;
+  --sidebar-foreground: #e5eee8;
+  --sidebar-primary: #91dbad;
+  --sidebar-primary-foreground: #102c1d;
+  --sidebar-accent: #22352b;
+  --sidebar-accent-foreground: #b7eccb;
+  --sidebar-border: #34483b;
+  --sidebar-ring: #91dbad;
+}
+
+.dark ::selection {
+  background: #427251;
+  color: #f0fff5;
+}
+.dark :is(button, a, input):focus-visible,
+.dark .search-box:focus-within {
+  outline-color: var(--ring);
+}
+.dark :is(.app-header, .inspector, .deck-card, .custom-deck, .deck-builder) {
+  background: var(--card);
+  border-color: var(--border);
+}
+.dark .navigation-reveal .app-header {
+  box-shadow: 0 8px 24px #0006;
+}
+.dark .navigation-handle span {
+  background: var(--muted-foreground);
+}
+.dark :is(.main-nav button, .icon-button, .text-button) {
+  color: var(--muted-foreground);
+}
+.dark :is(.main-nav button.current, .text-button:hover) {
+  color: var(--primary);
+}
+.dark :is(.main-nav button:hover, .icon-button:hover) {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.dark .main-nav button.current:after {
+  background: var(--primary);
+}
+.dark .avatar {
+  background: var(--secondary);
+  color: var(--primary);
+  border-color: var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.dark
+  :is(.soft-badge, .log-count, .custom-label h2 span, .hand-toolbar > span b) {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.dark .button {
+  background: var(--card);
+  border-color: var(--input);
+  color: var(--foreground);
+}
+.dark .button:hover:enabled {
+  background: var(--secondary);
+  border-color: var(--ring);
+}
+.dark .button.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.dark .button.primary:hover:enabled {
+  background: #aceac3;
+  border-color: #aceac3;
+}
+.dark :is(.invite-button, .selected-button, .attack-button) {
+  background: var(--accent);
+  border-color: #456d50;
+  color: var(--accent-foreground);
+}
+.dark :is(.invite-button, .attack-button):hover:enabled {
+  background: #355a41;
+  border-color: var(--ring);
+}
+.dark .attack-button:disabled {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+.dark :is(.input-field, .search-box, .quantity-buttons, .manual-damage input) {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--input);
+}
+.dark :is(.search-box input, .deck-name-input) {
+  background: transparent;
+  color: var(--foreground);
+  border-color: var(--input);
+}
+.dark input::placeholder {
+  color: var(--muted-foreground);
+}
+.dark .select-field {
+  background: var(--background) !important;
+  color: var(--foreground);
+  border-color: var(--input);
+}
+.dark :is(.poketable-dialog, .catalog-detail-dialog, .mobile-inspector) {
+  background: var(--card) !important;
+  color: var(--foreground);
+  border-color: var(--border) !important;
+}
+.dark .tools-tabs {
+  background: var(--secondary) !important;
+}
+.dark
+  :is(
+    .piece-stats,
+    .inspector-bottom,
+    .mini-tip,
+    .log-icon,
+    .chosen-deck-preview,
+    .guide-note,
+    .condition-button
+  ) {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+}
+.dark :is(.condition-button:hover, .quantity-buttons button:hover) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.dark
+  :is(
+    .hand-toolbar,
+    .hand-toolbar > span,
+    .hand-toolbar > button,
+    .hand-toolbar > p,
+    .empty-hand,
+    .hand-hint,
+    .table-footer,
+    .detail-overline,
+    .detail-subtitle,
+    .piece-stats small,
+    .attack-detail p,
+    .ability p,
+    .card-rules,
+    .card-traits,
+    .card-provenance,
+    .inspector-bottom > span,
+    .inspector-bottom p,
+    .inspector-empty,
+    .log-heading > span,
+    .log-entry p,
+    .eyebrow,
+    .collection-heading p,
+    .section-label > span,
+    .deck-info p,
+    .deck-counts,
+    .no-decks,
+    .no-decks p,
+    .deck-footnote,
+    .custom-deck p,
+    .library-count,
+    .catalog-caption,
+    .catalog-card p,
+    .catalog-source,
+    .pagination > span,
+    .empty-search,
+    .deck-progress-heading,
+    .deck-progress-heading small,
+    .builder-summary,
+    .builder-card small,
+    .builder-note,
+    .builder-empty,
+    .form-label,
+    .chosen-deck-preview p,
+    .or-divider,
+    .dialog-note,
+    .guide-step p,
+    .tool-row p,
+    .zone-card-list span,
+    .zone-card-list > p,
+    .catalog-rule,
+    .manual-damage,
+    .manual-note
+  ) {
+  color: var(--muted-foreground);
+}
+.dark
+  :is(
+    .piece-stats strong,
+    .attack-top > strong,
+    .attack-detail h3,
+    .card-traits b,
+    .card-traits b span,
+    .inspector-bottom button,
+    .inspector-empty h2,
+    .mini-tip svg,
+    .log-entry.turn p,
+    .no-decks h3,
+    .catalog-card h3,
+    .catalog-source a,
+    .empty-search h2,
+    .quantity-buttons button,
+    .quantity-buttons > span,
+    .deck-progress-heading strong,
+    .builder-summary b,
+    .builder-card > button:not(.builder-thumb),
+    .builder-card > b,
+    .guide-step > b,
+    .guide-step h3,
+    .catalog-detail-body > div > h3,
+    .ability strong
+  ) {
+  color: var(--accent-foreground);
+}
+.dark
+  :is(
+    .poketable-dialog [data-slot="dialog-description"],
+    .catalog-detail-dialog [data-slot="dialog-description"]
+  ) {
+  color: var(--muted-foreground);
+}
+.dark
+  :is(
+    .inspector-tabs,
+    .attack-detail,
+    .card-traits,
+    .card-provenance,
+    .log-entry,
+    .deck-buttons,
+    .no-decks,
+    .library-count,
+    .builder-summary,
+    .builder-card,
+    .tool-row,
+    .attachment-tools .text-button,
+    .ability,
+    .table-footer,
+    .catalog-source,
+    .keycap
+  ) {
+  border-color: var(--border);
+}
+.dark .inspector-tabs [data-slot="tabs-trigger"][data-state="active"] {
+  color: var(--primary);
+}
+.dark .inspector-tabs [data-slot="tabs-trigger"]:after {
+  background: var(--primary);
+}
+.dark :is(.or-divider > span, .deck-progress) {
+  background: var(--border);
+}
+.dark .deck-progress i {
+  background: var(--primary);
+}
+.dark .log-entry.win {
+  background: var(--secondary);
+}
+.dark .log-entry.attack .log-icon {
+  background: #403122;
+  color: #edbf86;
+}
+.dark .ability small {
+  color: #edbf86;
+}
+.dark .error-text {
+  color: var(--destructive);
+}
+.dark .danger {
+  background: #3b2624;
+  border-color: #754b43;
+  color: #ffc0b4;
+}
+.dark .danger:hover:enabled {
+  background: #52302b;
+  border-color: #d98c7f;
+}
+.dark .deck-art {
+  background: #263b2e;
+}
+.dark .catalog-image {
+  background: var(--muted);
+}
+.dark .deck-fire .deck-art {
+  background: radial-gradient(at 80% 30%, #64432b, #2a2821);
+}
+.dark .deck-water .deck-art {
+  background: radial-gradient(at 70% 20%, #245566, #1b2b32);
+}
+.dark .deck-grass .deck-art {
+  background: radial-gradient(at 70% 20%, #456037, #202f24);
+}
+.dark .deck-type {
+  color: #d3e3cc;
+}
+.dark .deck-card.chosen {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.dark .game-table {
+  background-color: #113d30;
+  border-color: #285541;
+  box-shadow:
+    0 8px 24px #0004,
+    0 0 0 1px #386d51,
+    inset 0 0 90px #061d2580;
+}
+.dark .victory-banner {
+  background: var(--card);
+  color: var(--primary);
+  border-color: var(--border);
+}
+.dark .victory-banner p,
+.dark .victory-banner > span {
+  color: var(--muted-foreground);
+}
+.dark .card-fallback {
+  background: linear-gradient(#304935, #192b21);
+  color: var(--foreground);
+}
+
+/* Keep all navigation actions reachable on narrow touch screens. */
+@media (max-width: 400px) {
+  .navigation-reveal .main-nav button {
+    padding-inline: 5px;
+  }
+  .navigation-reveal .header-end .icon-button {
+    padding: 7px;
+  }
+}
