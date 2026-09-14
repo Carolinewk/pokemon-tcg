@@ -4462,7 +4462,7 @@ button:hover:enabled {
   }
 }
 
-/* The table and hand share one viewport; only the inspector scrolls. */
+/* The hand sits inside the felt board; only the inspector scrolls. */
 .app-shell.is-playing {
   --hand-height: clamp(112px, 21dvh, 184px);
   height: 100vh;
@@ -4483,7 +4483,7 @@ button:hover:enabled {
 }
 .is-playing .play-surface {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) var(--hand-height);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 6px;
   height: 100%;
   min-height: 0;
@@ -4530,7 +4530,7 @@ button:hover:enabled {
 }
 .is-playing .game-table {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr) 28px minmax(0, 1fr) 46px;
+  grid-template-rows: 44px minmax(0, 1fr) 28px minmax(0, 1fr) 46px var(--hand-height);
   min-height: 0;
   padding: 0;
 }
@@ -4621,10 +4621,29 @@ button:hover:enabled {
   grid-template-rows: 26px minmax(0, 1fr);
   min-height: 0;
   margin: 0;
+  padding: 0 12px 6px;
+  background: linear-gradient(transparent, #052b244d);
 }
 .is-playing .hand-toolbar {
   flex-wrap: nowrap;
   min-width: 0;
+  padding-inline: 8px;
+}
+.is-playing .game-table .hand-toolbar,
+.is-playing .game-table .hand-toolbar > span,
+.is-playing .game-table .hand-toolbar > button {
+  color: #dde9da;
+}
+.is-playing .game-table .hand-toolbar > p,
+.is-playing .game-table .empty-hand {
+  color: #b9ccbb;
+}
+.is-playing .game-table .hand-toolbar > span b {
+  background: #d9e5b31f;
+  color: #e4edc9;
+}
+.is-playing .game-table .hand-toolbar > button:hover {
+  color: #fff;
 }
 .is-playing .hand-toolbar > span,
 .is-playing .hand-toolbar > button {
@@ -4655,7 +4674,9 @@ button:hover:enabled {
   height: 100%;
 }
 .is-playing .hand-card:hover,
+.is-playing .hand-card:focus-visible,
 .is-playing .hand-card.selected {
+  z-index: 10;
   transform: translateY(-8px) rotate(0) scale(1.1);
 }
 .is-playing .hand-hint,
@@ -4675,7 +4696,7 @@ button:hover:enabled {
   scrollbar-width: thin;
 }
 .is-playing .room-overlay {
-  inset: 44px 0 46px;
+  inset: 44px 0 calc(46px + var(--hand-height));
 }
 @container table-half (max-height: 140px) {
   .is-playing .bench-label,
@@ -4692,7 +4713,7 @@ button:hover:enabled {
     gap: 4px;
   }
   .is-playing .game-table {
-    grid-template-rows: 38px minmax(0, 1fr) 24px minmax(0, 1fr) 42px;
+    grid-template-rows: 38px minmax(0, 1fr) 24px minmax(0, 1fr) 42px var(--hand-height);
   }
   .is-playing .trainer-profile small,
   .is-playing .hand-toolbar > p {
@@ -4703,7 +4724,7 @@ button:hover:enabled {
     width: 21px;
   }
   .is-playing .room-overlay {
-    inset: 38px 0 42px;
+    inset: 38px 0 calc(42px + var(--hand-height));
   }
 }
 @media (max-width: 800px) {
@@ -4753,7 +4774,7 @@ button:hover:enabled {
     padding-bottom: 4px;
   }
   .is-playing .game-table {
-    grid-template-rows: 32px minmax(0, 1fr) 20px minmax(0, 1fr) 36px;
+    grid-template-rows: 32px minmax(0, 1fr) 20px minmax(0, 1fr) 36px var(--hand-height);
   }
   .is-playing .trainer-avatar {
     height: 26px;
@@ -4764,11 +4785,12 @@ button:hover:enabled {
     padding-block: 5px;
   }
   .is-playing .room-overlay {
-    inset: 32px 0 36px;
+    inset: 32px 0 calc(36px + var(--hand-height));
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .is-playing .hand-card:hover,
+  .is-playing .hand-card:focus-visible,
   .is-playing .hand-card.selected {
     transform: none;
   }

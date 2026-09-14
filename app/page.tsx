@@ -1510,6 +1510,88 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                <section className="hand-panel" aria-label="Your hand">
+                  <div className="hand-toolbar">
+                    <span>
+                      <Hand size={16} />
+                      Your hand <b>{me?.hand.length || 0}</b>
+                    </span>
+                    <p>
+                      {state.status === "setup"
+                        ? "Choose an Active Basic Pokémon, then ready up."
+                        : myTurn
+                          ? "Your next move starts here."
+                          : "Plan your next move."}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setZone("discard");
+                        setDialog("tools");
+                      }}
+                    >
+                      <SlidersHorizontal size={15} />
+                      Table tools
+                    </button>
+                  </div>
+                  <div className="hand-cards">
+                    {me?.hand.map((h, i) => (
+                      <button
+                        key={h.uid}
+                        className={`hand-card ${selection?.uid === h.uid ? "selected" : ""} ${isBasic(catalog[h.card]) ? "basic-card" : ""}`}
+                        style={
+                          {
+                            "--card-index": i,
+                            "--card-angle": `${(i - (me.hand.length - 1) / 2) * 1.4}deg`,
+                          } as CSSProperties
+                        }
+                        onClick={() =>
+                          inspect({
+                            card: h.card,
+                            uid: h.uid,
+                            owner: pid,
+                            zone: "hand",
+                          })
+                        }
+                        draggable={canAct}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", h.uid);
+                          setSelection({
+                            card: h.card,
+                            uid: h.uid,
+                            owner: pid,
+                            zone: "hand",
+                          });
+                        }}
+                        aria-label={`Inspect ${catalog[h.card].name} in hand`}
+                      >
+                        <CardImage card={catalog[h.card]} small />
+                        <span className="hand-card-label">
+                          {catalog[h.card].name}
+                        </span>
+                      </button>
+                    ))}
+                    {!me?.hand.length && (
+                      <div className="empty-hand">
+                        {emptyRoom
+                          ? "Your opening hand will appear when you join."
+                          : "No cards in hand."}
+                      </div>
+                    )}
+                  </div>
+                  <div className="hand-hint">
+                    <span>
+                      <span className="keycap">CLICK</span> Inspect a card <i />{" "}
+                      <span className="keycap">DRAG</span> Play or attach
+                    </span>
+                    <span>
+                      {myTurn
+                        ? me?.energyPlayed
+                          ? "Energy attached this turn"
+                          : "1 Energy attachment available"
+                        : "Make every card count."}
+                    </span>
+                  </div>
+                </section>
                 {emptyRoom && (
                   <div className="room-overlay">
                     <div className="room-waiting">
@@ -1573,88 +1655,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <section className="hand-panel">
-                <div className="hand-toolbar">
-                  <span>
-                    <Hand size={16} />
-                    Your hand <b>{me?.hand.length || 0}</b>
-                  </span>
-                  <p>
-                    {state.status === "setup"
-                      ? "Choose an Active Basic Pokémon, then ready up."
-                      : myTurn
-                        ? "Your next move starts here."
-                        : "Plan your next move."}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setZone("discard");
-                      setDialog("tools");
-                    }}
-                  >
-                    <SlidersHorizontal size={15} />
-                    Table tools
-                  </button>
-                </div>
-                <div className="hand-cards">
-                  {me?.hand.map((h, i) => (
-                    <button
-                      key={h.uid}
-                      className={`hand-card ${selection?.uid === h.uid ? "selected" : ""} ${isBasic(catalog[h.card]) ? "basic-card" : ""}`}
-                      style={
-                        {
-                          "--card-index": i,
-                          "--card-angle": `${(i - (me.hand.length - 1) / 2) * 1.4}deg`,
-                        } as CSSProperties
-                      }
-                      onClick={() =>
-                        inspect({
-                          card: h.card,
-                          uid: h.uid,
-                          owner: pid,
-                          zone: "hand",
-                        })
-                      }
-                      draggable={canAct}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("text/plain", h.uid);
-                        setSelection({
-                          card: h.card,
-                          uid: h.uid,
-                          owner: pid,
-                          zone: "hand",
-                        });
-                      }}
-                      aria-label={`Inspect ${catalog[h.card].name} in hand`}
-                    >
-                      <CardImage card={catalog[h.card]} small />
-                      <span className="hand-card-label">
-                        {catalog[h.card].name}
-                      </span>
-                    </button>
-                  ))}
-                  {!me?.hand.length && (
-                    <div className="empty-hand">
-                      {emptyRoom
-                        ? "Your opening hand will appear when you join."
-                        : "No cards in hand."}
-                    </div>
-                  )}
-                </div>
-                <div className="hand-hint">
-                  <span>
-                    <span className="keycap">CLICK</span> Inspect a card <i />{" "}
-                    <span className="keycap">DRAG</span> Play or attach
-                  </span>
-                  <span>
-                    {myTurn
-                      ? me?.energyPlayed
-                        ? "Energy attached this turn"
-                        : "1 Energy attachment available"
-                      : "Make every card count."}
-                  </span>
-                </div>
-              </section>
               <footer className="table-footer">
                 <span>
                   <ShieldCheck size={13} />
