@@ -7,6 +7,7 @@ import {
   type Post,
 } from "./game";
 import { createHttpClient } from "./http-client";
+import { relayOrigin } from "./public-path";
 export const POST_PACKER: VibiNet.Packed = {
   $: "Struct",
   fields: {
@@ -21,7 +22,7 @@ export const ROOM_VERSION = "poketable-v2-20444";
 export function connectTable(
   room: string,
   catalog: Catalog,
-  baseUrl = "",
+  baseUrl = relayOrigin,
   useOfficialRelay = false,
 ) {
   return new VibiNet.game<GameState, Post>({

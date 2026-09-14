@@ -1,18 +1,23 @@
 import { relayDb } from "@/db/relay";
 import type { Post } from "@/lib/game";
-const reply = (body: unknown, status = 200) =>
-  Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
+import { relayHeaders, relayOriginAllowed } from "@/lib/relay-cors";
+const reply = (request: Request, body: unknown, status = 200) =>
+  Response.json(body, { status, headers: relayHeaders(request) });
 const validRoom = (room: unknown): room is string =>
   typeof room === "string" && /^poketable-v2-20444-[a-z0-9]{6,24}$/.test(room);
 export async function GET(request: Request) {
+  if (!relayOriginAllowed(request))
+    return reply(request, { error: "This site cannot access the relay." }, 403);
   try {
     const url = new URL(request.url);
-    if (url.searchParams.has("ping")) return reply({ server_time: Date.now() });
+    if (url.searchParams.has("ping"))
+      return reply(request, { server_time: Date.now() });
     const room = url.searchParams.get("room");
-    if (!validRoom(room)) return reply({ error: "Invalid room code." }, 400);
+    if (!validRoom(room))
+      return reply(request, { error: "Invalid room code." }, 400);
     const from = Number(url.searchParams.get("from") || 0);
     if (!Number.isInteger(from) || from < 0)
-      return reply({ error: "Invalid post index." }, 400);
+      return reply(request, { error: "Invalid post index." }, 400);
     const db = relayDb();
     const results = await db.batch<Record<string, string | number>>([
       db
@@ -34,7 +39,7 @@ export async function GET(request: Request) {
       client_time: Number(row.server_time),
       data: JSON.parse(String(row.data)) as Post,
     }));
-    return reply({
+    return reply(request, {
       server_time: Date.now(),
       latest_index: Number(results[1].results[0]?.latest ?? -1),
       posts,
@@ -42,18 +47,28 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Room read failed", error);
     return reply(
+      request,
       { error: "The table is temporarily unavailable. Retrying is safe." },
       503,
     );
   }
 }
+export function OPTIONS(request: Request) {
+  if (!relayOriginAllowed(request))
+    return reply(request, { error: "This site cannot access the relay." }, 403);
+  const headers = relayHeaders(request);
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
+  headers.set("Access-Control-Max-Age", "600");
+  return new Response(null, { status: 204, headers });
+}
 export async function POST(request: Request) {
+  if (!relayOriginAllowed(request))
+    return reply(request, { error: "This site cannot access the relay." }, 403);
   try {
-    const origin = request.headers.get("origin");
-    if (origin && origin !== new URL(request.url).origin)
-      return reply({ error: "Use the same game site to join." }, 403);
     const raw = await request.text();
-    if (raw.length > 12000) return reply({ error: "Move is too large." }, 413);
+    if (raw.length > 12000)
+      return reply(request, { error: "Move is too large." }, 413);
     const body = JSON.parse(raw);
     const { room, name, data } = body;
     if (
@@ -70,7 +85,7 @@ export async function POST(request: Request) {
       typeof data.payload !== "string" ||
       data.payload.length > 10000
     )
-      return reply({ error: "Invalid move." }, 400);
+      return reply(request, { error: "Invalid move." }, 400);
     const db = relayDb();
     const now = Date.now();
     // SQLite serializes writes. Allocation and insertion share one statement;
@@ -98,10 +113,11 @@ export async function POST(request: Request) {
       }>();
     if (!saved)
       return reply(
+        request,
         { error: "This room has reached its move limit. Start a new match." },
         409,
       );
-    return reply({
+    return reply(request, {
       server_time: Date.now(),
       post: {
         room,
@@ -114,9 +130,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof SyntaxError)
-      return reply({ error: "Invalid move JSON." }, 400);
+      return reply(request, { error: "Invalid move JSON." }, 400);
     console.error("Room write failed", error);
     return reply(
+      request,
       { error: "The move could not be saved. Retrying is safe." },
       503,
     );
