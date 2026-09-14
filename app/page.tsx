@@ -823,7 +823,11 @@ export default function Home() {
     );
   };
   const renderPrizes = (p: Player | undefined) => (
-    <div className="prize-area">
+    <div
+      className="prize-area"
+      role="group"
+      aria-label={`${p?.id === pid ? "Your" : "Opponent's"} prize cards: ${p?.prizes.length ?? 6} remaining`}
+    >
       <div className="prize-grid">
         {Array.from({ length: 6 }, (_, i) => (
           <div
@@ -834,9 +838,6 @@ export default function Home() {
           </div>
         ))}
       </div>
-      <span>
-        PRIZE CARDS <b>{p?.prizes.length ?? 6}</b>
-      </span>
     </div>
   );
   const renderPile = (p: Player | undefined, own: boolean) => (
@@ -1389,14 +1390,15 @@ export default function Home() {
                 <div className="board-half opponent-half">
                   {renderPrizes(opponent)}
                   <div className="pokemon-zone">
-                    <div className="bench-line">
+                    <div
+                      className="bench-line"
+                      role="group"
+                      aria-label="Opponent's Bench"
+                    >
                       {Array.from({ length: 5 }, (_, i) =>
                         tablePiece(opponent?.bench[i], opponent, "bench", i),
                       )}
                     </div>
-                    <span className="zone-label bench-label">
-                      OPPONENT’S BENCH
-                    </span>
                     <div className="active-line">
                       {tablePiece(
                         opponent?.active || undefined,
@@ -1422,17 +1424,8 @@ export default function Home() {
                       <span>{catalog[state.stadium.card].name}</span>
                     </button>
                   )}
-                  <div className="turn-token">
+                  <div className="turn-token" aria-hidden="true">
                     <CircleDot size={20} />
-                    <b>
-                      {state.status === "finished"
-                        ? "MATCH COMPLETE"
-                        : emptyRoom
-                          ? "FRIEND MATCH"
-                          : state.status === "setup"
-                            ? "SETUP"
-                            : `TURN ${state.turn}`}
-                    </b>
                   </div>
                   <span />
                 </div>
@@ -1443,10 +1436,11 @@ export default function Home() {
                       {tablePiece(me?.active || undefined, me, "active")}
                       <span className="active-label">ACTIVE</span>
                     </div>
-                    <span className="zone-label bench-label">
-                      YOUR BENCH <b>{me?.bench.length || 0}/5</b>
-                    </span>
-                    <div className="bench-line">
+                    <div
+                      className="bench-line"
+                      role="group"
+                      aria-label={`Your Bench: ${me?.bench.length || 0} of 5 Pokémon`}
+                    >
                       {Array.from({ length: 5 }, (_, i) =>
                         tablePiece(me?.bench[i], me, "bench", i),
                       )}
@@ -1516,13 +1510,6 @@ export default function Home() {
                       <Hand size={16} />
                       Your hand <b>{me?.hand.length || 0}</b>
                     </span>
-                    <p>
-                      {state.status === "setup"
-                        ? "Choose an Active Basic Pokémon, then ready up."
-                        : myTurn
-                          ? "Your next move starts here."
-                          : "Plan your next move."}
-                    </p>
                     <button
                       onClick={() => {
                         setZone("discard");
