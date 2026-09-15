@@ -18,7 +18,7 @@ export const POST_PACKER: VibiNet.Packed = {
   },
 };
 // A frozen rules and data namespace prevents mismatched game versions sharing a table.
-export const ROOM_VERSION = "poketable-v2-20444";
+export const ROOM_VERSION = "poketable-v3-base-set-20444";
 export function connectTable(
   room: string,
   catalog: Catalog,

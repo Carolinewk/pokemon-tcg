@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import "./themes.css";
 import "./collection-theme.css";
+import "./effects.css";
 
 export const metadata: Metadata = {
   title: "PokéTable — Pokémon TCG with friends",

@@ -12,9 +12,11 @@ A tactile, casual Pokémon TCG table built with React, Vinext, and **VibiNet 0.1
 
 ## Rules scope
 
-This is an **assisted tabletop**, not a complete tournament rules engine. The core implements deterministic shuffling and mulligans, opening hands, setup, turns, Basic Pokémon and evolution timing, one Energy attachment, Supporter limits, typed attack costs, weakness/resistance, retreat, conditions, Knock Outs, multi-Prize Pokémon, prizes, deck-out, and concession. The classic starter attacks and Bill, Professor Oak, Switch, and Pokémon Center are automated.
+All **102 English Base Set cards (`base1`)** have automated effects: **114 attacks (83 with effect text), 6 Pokémon Powers, 26 Trainers, and 7 Energy cards**. Select a Pokémon to use its activated Power; passive Strikes Back triggers automatically. Card effects ask the appropriate player to select targets, Energy, discards, search results, and deck order. The implementation uses separate named functions for each attack and each Trainer, Power, and Energy effect. See [the effect module guide](docs/base-set-effects.md).
 
-Complex printed effects, unusual special Energy, abilities, era-specific rules, and nonstandard card interactions are resolved by the players using Table tools. These tools expose coin flips, damage/healing, conditions, attachment removal, swapping Active Pokémon, drawing, searching/moving between card zones, shuffling, and resolving Knock Outs. Printed card text is always available for inspection. Practice is intended for the included starter decks; the bot does not interpret arbitrary card text.
+The surrounding match rules remain the existing assisted tabletop rules: deterministic setup and turns, evolution timing, one normal Energy attachment, Supporter limits, typed attack costs, weakness/resistance, retreat, conditions, Knock Outs, multi-Prize Pokémon, prizes, deck-out, and concession. This update does not switch the entire table to the historical 1999 ruleset. For example, the first player still cannot attack on their first turn, Confusion deals 30 damage on tails, retreat is limited to once per turn, and Prizes are taken automatically.
+
+Special effects from other sets and interactions requiring those effects still use Table tools. Plain attacks without effect text also work automatically, and the four previously supported Trainer reprints remain supported. The card catalog is broader than the automated rules. Practice is intended for the included starter decks; the bot resolves its effect choices but does not interpret arbitrary printed text.
 
 Rooms are for trusted casual play. Both clients replay the same inputs, so hidden card identities are concealed by the interface, **not encrypted or enforced by an authoritative game server**. There is no competitive anti-cheat. Sharing a room gives access to its input history.
 
@@ -24,7 +26,7 @@ Rooms are for trusted casual play. Both clients replay the same inputs, so hidde
 
 The default VibiNet WebSocket endpoint did not complete a connection in this development environment. The game therefore uses VibiNet's supported `client` option with `lib/http-client.ts`, a same-origin HTTP relay backed by Cloudflare D1. VibiNet still computes, orders, predicts, rolls back, and replays game states. The relay only stores inputs with gapless per-room indexes and server timestamps. Idempotent write retries preserve ordering after interrupted requests. Passing `true` as `connectTable`'s fourth argument opts into VibiNet's official WebSocket relay for a separately namespaced, consistently configured deployment.
 
-Room moves survive reconnects and deployments in D1. The `poketable-v2-20444` namespace freezes the rules/catalog version; change it in both `lib/network.ts` and `app/api/relay/route.ts` when incompatible rules or card data change. A room is capped at 10,001 input posts.
+Room moves survive reconnects and deployments in D1. New matches use the `poketable-v3-base-set-20444` namespace so clients with the previous rules cannot silently disagree in the same room. The relay continues to serve the previous namespace for already-open older clients. Update both `lib/network.ts` and `app/api/relay/route.ts` when incompatible rules or card data change. A room is capped at 10,001 input posts.
 
 ## Development
 
@@ -71,7 +73,7 @@ POKETABLE_TEST_ORIGIN=http://localhost:5174 npm run test:multiplayer
 npm run build
 ```
 
-The game tests include 100 reproducible opening hands, 24 complete simulated matches, conservation of every card, illegal-turn rejection, typed costs, evolution, attack costs, prizes, deck-out, and manual effects. The multiplayer test runs independent VibiNet clients against the actual HTTP/D1 relay and verifies exact state agreement, turn changes, replay, and rejection of a third player.
+The tests cover all 114 Base Set attacks (including heads and tails), every Trainer, Power, and Energy, Metronome copying every Base Set attack, effect timing and protection, simultaneous Knock Outs, valid and invalid choices, and conservation of every physical card. The existing 100 seeded openings and 24 complete simulated matches remain covered. The multiplayer test runs independent VibiNet clients against the HTTP/D1 relay and checks Computer Search, an opponent's Whirlwind choice, reconnect during a pending effect, exact replay, and rejection of a third seat. GitHub Pages runs the game tests before deployment.
 
 Refresh the data snapshot with `npm run cards:sync`. This downloads the upstream public JSON dataset and starter art; review the count and update the rules/catalog namespace before publishing an incompatible snapshot.
 

@@ -90,7 +90,6 @@ import {
   isBasic,
   allPieces,
   deckError,
-  energyType,
   canPay,
   automaticAttack,
   type Card,
@@ -104,7 +103,21 @@ import {
 import { playSound } from "@/lib/audio";
 import type { connectTable } from "@/lib/network";
 import { publicPath } from "@/lib/public-path";
-import { compareCardRelease, formatCardRelease, type ReleaseOrder } from "@/lib/catalog";
+import {
+  compareCardRelease,
+  formatCardRelease,
+  type ReleaseOrder,
+} from "@/lib/catalog";
+import {
+  EffectChoiceDialog,
+  pieceEffectLabels,
+  RevealedCardsDialog,
+} from "@/components/effect-choice";
+import { BASE_POWERS, powerAvailable } from "@/lib/effects/base-set/powers";
+import {
+  attachmentEnergy,
+  providedEnergy,
+} from "@/lib/effects/base-set/energy";
 
 const STARTER_CATALOG = Object.fromEntries(
   (starterData as Card[]).map((c) => [c.id, c]),
@@ -220,7 +233,9 @@ function Choice({
       <SelectTrigger className="select-field" aria-label={label}>
         <SelectValue placeholder={label} />
       </SelectTrigger>
-      <SelectContent className={collection ? "collection-ui collection-menu" : undefined}>
+      <SelectContent
+        className={collection ? "collection-ui collection-menu" : undefined}
+      >
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
             {o.label}
@@ -315,14 +330,17 @@ export default function Home() {
   const me = state.players.find((p) => p.id === pid);
   const opponent = state.players.find((p) => p.id !== pid);
   const myTurn =
-    state.status === "playing" && state.players[state.current]?.id === pid;
+    state.status === "playing" &&
+    state.players[state.current]?.id === pid &&
+    !state.pending;
   const selectedCard = selection ? catalog[selection.card] : undefined;
   const selectedPiece = selection?.uid
     ? state.players.flatMap(allPieces).find((p) => p.uid === selection.uid)
     : undefined;
   const canAct =
     (myTurn || state.status === "setup" || state.status === "waiting") &&
-    state.status !== "finished";
+    state.status !== "finished" &&
+    !state.pending;
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -622,7 +640,10 @@ export default function Home() {
     }
   };
   const cards = useMemo(
-    () => Object.values(catalog).sort((a, b) => compareCardRelease(a, b, releaseOrder)),
+    () =>
+      Object.values(catalog).sort((a, b) =>
+        compareCardRelease(a, b, releaseOrder),
+      ),
     [catalog, releaseOrder],
   );
   const sets = useMemo(
@@ -779,10 +800,14 @@ export default function Home() {
               )}
             </button>
             <div className="attached-energy">
-              {p.energy.slice(0, 6).map((id, j) => (
-                <Energy key={j} type={energyType(catalog[id])} size={16} />
-              ))}
-              {p.energy.length > 6 && <span>+{p.energy.length - 6}</span>}
+              {providedEnergy(p, catalog)
+                .slice(0, 6)
+                .map((type, j) => (
+                  <Energy key={j} type={type} size={16} />
+                ))}
+              {providedEnergy(p, catalog).length > 6 && (
+                <span>+{providedEnergy(p, catalog).length - 6}</span>
+              )}
             </div>
             {zone === "active" && (
               <div className="pokemon-health">
@@ -899,6 +924,13 @@ export default function Home() {
     : [];
   const inspectorContent = (
     <>
+      {state.pending && (
+        <p className="effect-waiting" role="status">
+          {state.pending.choice.player === pid
+            ? "Choose how to resolve this card."
+            : `${state.players.find((p) => p.id === state.pending?.choice.player)?.name || "Your opponent"} is choosing for a card effect…`}
+        </p>
+      )}
       <Tabs value={detailTab} onValueChange={setDetailTab}>
         <TabsList className="inspector-tabs" variant="line">
           <TabsTrigger value="card">
@@ -971,11 +1003,51 @@ export default function Home() {
                   </span>
                 </div>
               )}
+              {selectedPiece && (
+                <div className="active-card-effects">
+                  {pieceEffectLabels(selectedPiece, state.turn, catalog).map(
+                    (label, i) => (
+                      <span key={`${label}-${i}`}>{label}</span>
+                    ),
+                  )}
+                  {selectedPiece.energyTypes &&
+                    Object.keys(selectedPiece.energyTypes).map((index) => (
+                      <span key={`buzzap-${index}`}>
+                        Electrode ·{" "}
+                        {attachmentEnergy(
+                          selectedPiece,
+                          Number(index),
+                          catalog,
+                        ).join(" + ")}
+                      </span>
+                    ))}
+                </div>
+              )}
               {selectedCard.abilities.map((a, i) => (
                 <div className="ability" key={i}>
                   <small>{a.type}</small>
                   <strong>{a.name}</strong>
                   <p>{a.text}</p>
+                  {selectedPiece &&
+                    selection?.owner === pid &&
+                    BASE_POWERS[selectedCard.id]?.use && (
+                      <button
+                        className="button primary full-width"
+                        disabled={!myTurn || !powerAvailable(selectedPiece)}
+                        onClick={() => {
+                          if (send("power", { uid: selectedPiece.uid }))
+                            setInspectorOpen(false);
+                        }}
+                      >
+                        <Sparkles size={15} /> Use {a.name}
+                      </button>
+                    )}
+                  {BASE_POWERS[selectedCard.id]?.passive && (
+                    <small>
+                      Triggers automatically when this Pokémon is damaged by an
+                      opponent’s attack.
+                    </small>
+                  )}
                 </div>
               ))}
               {selectedCard.attacks.map((a, i) => {
@@ -983,6 +1055,10 @@ export default function Home() {
                   selection?.zone === "active" && selection.owner === pid;
                 const payable =
                   !!selectedPiece && canPay(selectedPiece, a, catalog);
+                const disabledByEffect =
+                  selectedPiece?.usedAttacks?.includes(a.name) ||
+                  (selectedPiece?.effects?.amnesia?.name === a.name &&
+                    selectedPiece.effects.amnesia.until >= state.turn);
                 return (
                   <div className="attack-detail" key={i}>
                     <div className="attack-top">
@@ -1015,6 +1091,7 @@ export default function Home() {
                           disabled={
                             !myTurn ||
                             !payable ||
+                            !!disabledByEffect ||
                             state.turn === 1 ||
                             selectedPiece?.conditions.some((c) =>
                               ["Asleep", "Paralyzed"].includes(c),
@@ -1035,7 +1112,9 @@ export default function Home() {
                             ? "Wait for your turn"
                             : !payable
                               ? "More Energy needed"
-                              : `Use ${a.name}`}
+                              : disabledByEffect
+                                ? "This attack is unavailable"
+                                : `Use ${a.name}`}
                           <ArrowUpRight size={14} />
                         </button>
                         {!automaticAttack(selectedCard, a) && (
@@ -1056,6 +1135,18 @@ export default function Home() {
                   ))}
                 </div>
               )}
+              {selectedPiece?.card === "base1-70" &&
+                selection?.owner === pid && (
+                  <button
+                    className="button full-width"
+                    disabled={!myTurn}
+                    onClick={() =>
+                      send("discardDoll", { uid: selectedPiece.uid })
+                    }
+                  >
+                    <Trash2 size={15} /> Discard Clefairy Doll
+                  </button>
+                )}
               {selection?.zone === "hand" && (
                 <div className="play-action">
                   {(selectedCard.supertype === "Energy" ||
@@ -1878,15 +1969,13 @@ export default function Home() {
             </div>
           </section>
         ) : (
-          <section className={`library-page collection-ui ${editing ? "building-deck" : ""}`}>
+          <section
+            className={`library-page collection-ui ${editing ? "building-deck" : ""}`}
+          >
             <div className="collection-heading">
               <div>
-                <span className="eyebrow">
-                  POKÉMON TCG
-                </span>
-                <h1>
-                  {editing ? "Deck builder" : "Card library"}
-                </h1>
+                <span className="eyebrow">POKÉMON TCG</span>
+                <h1>{editing ? "Deck builder" : "Card library"}</h1>
                 <p>
                   {loaded
                     ? "20,444 English cards. 174 sets. Endless possibilities."
@@ -1992,7 +2081,12 @@ export default function Home() {
                     {filtered.length.toLocaleString()} cards{" "}
                     {query && `matching “${query}”`}
                   </span>
-                  <span>Release date · {releaseOrder === "newest" ? "Newest first" : "Oldest first"}</span>
+                  <span>
+                    Release date ·{" "}
+                    {releaseOrder === "newest"
+                      ? "Newest first"
+                      : "Oldest first"}
+                  </span>
                 </div>
                 <div className="card-grid">
                   {filtered.slice(page * 36, page * 36 + 36).map((c) => (
@@ -2373,7 +2467,7 @@ export default function Home() {
                   <h3>Make your move count.</h3>
                   <p>
                     Select your Active Pokémon to attack. Energy costs,
-                    weakness, resistance, classic effects, Knock Outs, and
+                    weakness, resistance, Base Set effects, Knock Outs, and
                     Prizes are handled for you. Attacking ends your turn.
                   </p>
                 </div>
@@ -2384,8 +2478,9 @@ export default function Home() {
                   <h3>Every era has a seat.</h3>
                   <p>
                     All 20,444 English cards in the bundled catalog are
-                    available. For complex abilities, special Energy, and newer
-                    card effects, agree on the printed rules and use Table tools
+                    available. All 102 Base Set cards have automated effects;
+                    choices appear when a card needs them. For effects from
+                    other sets, agree on the printed rules and use Table tools
                     to draw, move cards, flip coins, adjust damage, and apply
                     conditions. This is an assisted casual table, not a complete
                     tournament rules engine.
@@ -2782,6 +2877,31 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
       <Toaster position="bottom-center" richColors closeButton />
+      {screen === "table" && !!state.reveals?.length && (
+        <RevealedCardsDialog
+          key={`${mode}-${room}-${state.reveals.at(-1)!.id}`}
+          reveals={state.reveals.filter(
+            (r) => r.id === state.reveals!.at(-1)!.id,
+          )}
+          catalog={catalog}
+          renderCard={(card) => <CardImage card={card} small />}
+        />
+      )}
+      {state.pending?.choice.player === pid && (
+        <EffectChoiceDialog
+          key={`${state.pending.id}-${state.pending.choice.key}`}
+          pending={state.pending}
+          catalog={catalog}
+          renderCard={(card) => <CardImage card={card} small />}
+          onChoose={(values) =>
+            send("choose", {
+              resolution: state.pending!.id,
+              choice: state.pending!.choice.key,
+              values,
+            })
+          }
+        />
+      )}
     </div>
   );
 }

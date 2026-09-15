@@ -31,6 +31,8 @@ jobs:
         run: npm ci
       - name: Check types
         run: npm run typecheck
+      - name: Check card effects and game rules
+        run: npm test
       - name: Build game
         run: npm run build:pages
         env:

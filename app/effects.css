@@ -1,0 +1,157 @@
+.effect-choice-dialog {
+  width: min(760px, calc(100vw - 24px));
+  max-width: 760px;
+  max-height: min(90dvh, 900px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 2px solid var(--border);
+}
+.effect-choice-dialog [data-slot="dialog-title"] {
+  font-size: 20px;
+  line-height: 1.35;
+}
+.effect-choice-dialog [data-slot="dialog-description"] {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.effect-choice-search {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 16px;
+}
+.effect-choice-options {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 4px;
+}
+.effect-choice-options.with-cards {
+  grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+}
+.effect-choice-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.effect-choice-option img {
+  width: 100%;
+  max-width: 150px;
+  aspect-ratio: 2.5 / 3.5;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.effect-choice-option.chosen {
+  border-color: #e4b629;
+  box-shadow: 0 0 0 2px #e4b62955;
+}
+.effect-choice-option:focus-visible {
+  outline: 3px solid #63aef7;
+  outline-offset: 2px;
+}
+.effect-choice-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #102d53;
+  background: #ffd54e;
+  display: grid;
+  place-items: center;
+}
+.effect-choice-order {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  list-style: decimal inside;
+  font-size: 14px;
+}
+.effect-choice-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.active-card-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.active-card-effects span {
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.effect-waiting {
+  padding: 10px 14px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+.ability .button {
+  margin-top: 10px;
+}
+.revealed-cards {
+  margin: 14px 0;
+  border: 1px solid var(--border);
+  padding: 10px;
+  font-size: 14px;
+}
+.revealed-cards summary {
+  cursor: pointer;
+}
+.revealed-cards p {
+  margin-top: 8px;
+}
+.revealed-card-group h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.revealed-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.revealed-card-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.revealed-card-grid img {
+  width: 100%;
+  aspect-ratio: 2.5 / 3.5;
+  object-fit: contain;
+}
+@media (max-width: 480px) {
+  .effect-choice-dialog {
+    padding: 16px;
+  }
+  .effect-choice-options.with-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -45,7 +45,7 @@ function integrity(s) {
       (c) => c.card,
     );
     for (const c of allPieces(p))
-      ids.push(c.card, ...c.energy, ...c.stack, ...c.tools);
+      ids.push(c.card, ...c.energy, ...c.stack, ...c.tools, ...(c.trainerAttachments || []).map(t => t.card));
     assert.equal(ids.length, 60);
     assert.ok(ids.every((id) => catalog[id]));
     assert.ok(p.bench.length <= 5);

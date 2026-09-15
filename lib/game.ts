@@ -1,87 +1,36 @@
-export type Attack = {
-  name: string;
-  cost: string[];
-  damage: string;
-  text: string;
-  convertedEnergyCost: number;
-};
-export type Card = {
-  id: string;
-  name: string;
-  supertype: string;
-  subtypes: string[];
-  hp: number;
-  types: string[];
-  evolvesFrom: string;
-  attacks: Attack[];
-  abilities: { name: string; text: string; type: string }[];
-  rules: string[];
-  weaknesses: { type: string; value: string }[];
-  resistances: { type: string; value: string }[];
-  retreat: number;
-  image: string;
-  small: string;
-  set: string;
-  setId: string;
-  number: string;
-  rarity: string;
-  date: string;
-  legalities: Record<string, string>;
-};
-export type Catalog = Record<string, Card>;
-export type Piece = {
-  uid: string;
-  card: string;
-  damage: number;
-  energy: string[];
-  stack: string[];
-  tools: string[];
-  conditions: string[];
-  entered: number;
-  evolved: number;
-  shield: number;
-};
-export type HandCard = { uid: string; card: string };
-export type Player = {
-  id: string;
-  name: string;
-  deckName: string;
-  deck: HandCard[];
-  hand: HandCard[];
-  prizes: HandCard[];
-  discard: HandCard[];
-  active: Piece | null;
-  bench: Piece[];
-  ready: boolean;
-  energyPlayed: boolean;
-  supportPlayed: boolean;
-  retreated: boolean;
-  turns: number;
-  mulligans: number;
-};
-export type GameState = {
-  players: Player[];
-  status: "waiting" | "setup" | "playing" | "finished";
-  turn: number;
-  current: number;
-  seed: number;
-  seq: number;
-  log: { id: number; text: string; kind: string }[];
-  winner: string | null;
-  coin: string | null;
-  stadium: (HandCard & { owner: string }) | null;
-  seen: string[];
-  effect: { id: number; kind: string; text: string } | null;
-};
-export type Post = { pid: string; id: string; action: string; payload: string };
-export type Deck = {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  cover: string;
-  cards: string[];
-};
+export * from "./game-types";
+import type {
+  Catalog,
+  Player,
+  GameState,
+  Post,
+  Deck,
+  EffectIntent,
+} from "./game-types";
+import {
+  initialState,
+  shuffle,
+  log,
+  effect,
+  isBasic,
+  piece,
+  allPieces,
+  findPiece,
+  draw,
+  flip,
+  condition,
+  checkKnockouts,
+  nextTurn,
+  clearAttackEffects,
+  discardEnergy,
+} from "./game-core";
+export { initialState, isBasic, allPieces, energyType } from "./game-core";
+import { automaticAttack, canPay } from "./effects/base-set";
+import { powerAvailable } from "./effects/base-set/powers";
+import { resolveEffect } from "./effect-engine";
+import { trainerHandler } from "./effects/base-set/trainers";
+import { attachmentEnergy } from "./effects/base-set/energy";
+export { automaticAttack, canPay } from "./effects/base-set";
 const copies = (id: string, n: number) => Array<string>(n).fill(id);
 const trainers = [
   ...copies("base1-91", 4),
@@ -144,62 +93,6 @@ export const STARTERS: Deck[] = [
     ],
   },
 ];
-export const hash = (s: string) => {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-};
-export function initialState(room = "practice"): GameState {
-  return {
-    players: [],
-    status: "waiting",
-    turn: 0,
-    current: 0,
-    seed: hash(room) || 1,
-    seq: 0,
-    log: [],
-    winner: null,
-    coin: null,
-    stadium: null,
-    seen: [],
-    effect: null,
-  };
-}
-function random(s: GameState) {
-  s.seed = (Math.imul(s.seed, 1664525) + 1013904223) >>> 0;
-  return s.seed / 4294967296;
-}
-function shuffle<T>(s: GameState, a: T[]) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(random(s) * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-function log(s: GameState, text: string, kind = "play") {
-  s.log.push({ id: s.seq, text, kind });
-  s.log = s.log.slice(-80);
-}
-function effect(s: GameState, kind: string, text: string) {
-  s.effect = { id: s.seq, kind, text };
-}
-export const isBasic = (c: Card | undefined) =>
-  c?.supertype === "Pokémon" && c.subtypes.includes("Basic");
-export const energyType = (c: Card | undefined) =>
-  [
-    "Fire",
-    "Water",
-    "Grass",
-    "Lightning",
-    "Psychic",
-    "Fighting",
-    "Darkness",
-    "Metal",
-    "Fairy",
-  ].find((t) => c?.name.includes(t)) || "Colorless";
 export function deckError(ids: string[], catalog: Catalog) {
   if (ids.length !== 60) return `A deck needs 60 cards (${ids.length}/60).`;
   if (ids.some((id) => !catalog[id]))
@@ -218,263 +111,6 @@ export function deckError(ids: string[], catalog: Catalog) {
       return `Use at most 4 copies of ${c.name}.`;
   }
   return null;
-}
-function piece(h: HandCard, turn: number): Piece {
-  return {
-    ...h,
-    damage: 0,
-    energy: [],
-    stack: [],
-    tools: [],
-    conditions: [],
-    entered: turn,
-    evolved: -1,
-    shield: 0,
-  };
-}
-export function allPieces(p: Player) {
-  return [...(p.active ? [p.active] : []), ...p.bench];
-}
-function findPiece(p: Player, uid: string | undefined) {
-  return allPieces(p).find((x) => x.uid === uid);
-}
-function draw(s: GameState, p: Player, n: number, required = false) {
-  for (let i = 0; i < n; i++) {
-    const c = p.deck.shift();
-    if (c) p.hand.push(c);
-    else if (required) {
-      s.status = "finished";
-      s.winner = s.players.find((q) => q.id !== p.id)?.id || null;
-      log(s, `${p.name} cannot draw. The other Trainer wins.`, "win");
-      break;
-    }
-  }
-}
-function flip(s: GameState) {
-  const heads = random(s) >= 0.5;
-  s.coin = heads ? "Heads" : "Tails";
-  log(s, `Coin flip: ${s.coin}.`, "coin");
-  return heads;
-}
-function condition(c: Piece, name: string) {
-  if (["Asleep", "Confused", "Paralyzed"].includes(name))
-    c.conditions = c.conditions.filter(
-      (x) => !["Asleep", "Confused", "Paralyzed"].includes(x),
-    );
-  if (!c.conditions.includes(name)) c.conditions.push(name);
-}
-function checkKnockouts(s: GameState, catalog: Catalog) {
-  const awards: [number, number][] = [];
-  for (let i = 0; i < s.players.length; i++) {
-    const p = s.players[i];
-    for (const c of allPieces(p)) {
-      if (c.damage < (catalog[c.card]?.hp || 9999)) continue;
-      const card = catalog[c.card];
-      p.discard.push(
-        { uid: c.uid, card: c.card },
-        ...c.stack.map((id, k) => ({ uid: c.uid + "s" + k, card: id })),
-        ...c.energy.map((id, k) => ({ uid: c.uid + "e" + k, card: id })),
-        ...c.tools.map((id, k) => ({ uid: c.uid + "t" + k, card: id })),
-      );
-      if (p.active?.uid === c.uid) p.active = null;
-      else p.bench = p.bench.filter((b) => b.uid !== c.uid);
-      const prizes = card.subtypes.some((t) => ["VMAX", "TAG TEAM"].includes(t))
-        ? 3
-        : card.subtypes.some((t) =>
-              ["ex", "EX", "V", "VSTAR", "V-UNION", "GX"].includes(t),
-            )
-          ? 2
-          : 1;
-      awards.push([1 - i, prizes]);
-      log(s, `${card.name} was Knocked Out!`, "knockout");
-      effect(s, "knockout", `${card.name} • Knocked Out`);
-    }
-  }
-  for (const [idx, n] of awards) {
-    const p = s.players[idx];
-    if (!p) continue;
-    for (let i = 0; i < n; i++) {
-      const card = p.prizes.shift();
-      if (card) p.hand.push(card);
-    }
-    log(s, `${p.name} took ${n} Prize card${n > 1 ? "s" : ""}.`, "prize");
-  }
-  const winners = s.players.filter(
-    (p, i) =>
-      (p.prizes.length === 0 && s.status === "playing") ||
-      (!s.players[1 - i]?.active &&
-        !s.players[1 - i]?.bench.length &&
-        s.status === "playing"),
-  );
-  if (winners.length) {
-    s.status = "finished";
-    s.winner = winners.length === 1 ? winners[0].id : "draw";
-    log(
-      s,
-      winners.length === 1
-        ? `${winners[0].name} wins the match!`
-        : "The match ends in a draw.",
-      "win",
-    );
-    effect(
-      s,
-      "win",
-      winners.length === 1 ? `${winners[0].name} wins!` : "A draw!",
-    );
-  }
-}
-function nextTurn(s: GameState, catalog: Catalog) {
-  const ending = s.players[s.current];
-  for (const p of s.players) {
-    const a = p.active;
-    if (!a) continue;
-    if (a.conditions.includes("Poisoned")) a.damage += 10;
-    if (a.conditions.includes("Burned")) {
-      a.damage += 20;
-      if (flip(s)) a.conditions = a.conditions.filter((x) => x !== "Burned");
-    }
-    if (a.conditions.includes("Asleep") && flip(s))
-      a.conditions = a.conditions.filter((x) => x !== "Asleep");
-  }
-  if (ending.active)
-    ending.active.conditions = ending.active.conditions.filter(
-      (x) => x !== "Paralyzed",
-    );
-  checkKnockouts(s, catalog);
-  if (s.status === "finished") return;
-  s.current = 1 - s.current;
-  s.turn++;
-  const p = s.players[s.current];
-  p.energyPlayed = false;
-  p.supportPlayed = false;
-  p.retreated = false;
-  p.turns++;
-  for (const c of allPieces(p)) c.shield = 0;
-  draw(s, p, 1, true);
-  log(s, `${p.name}'s turn. Drew a card.`, "turn");
-}
-export function canPay(c: Piece, attack: Attack, catalog: Catalog) {
-  const pool = c.energy.flatMap((id) => {
-    const card = catalog[id];
-    return /Double Colorless|Twin Energy/.test(card?.name || "")
-      ? ["Colorless", "Colorless"]
-      : [energyType(card)];
-  });
-  for (const cost of attack.cost.filter((t) => t !== "Colorless")) {
-    let ix = pool.indexOf(cost);
-    if (ix < 0 && catalog[c.card]?.id === "base1-4") ix = pool.length ? 0 : -1;
-    if (ix < 0) return false;
-    pool.splice(ix, 1);
-  }
-  return pool.length >= attack.cost.filter((t) => t === "Colorless").length;
-}
-export function automaticAttack(card: Card, attack: Attack) {
-  return (
-    (!attack.text && !/[+×x]/.test(attack.damage)) ||
-    (card.setId === "base1" &&
-      [
-        "Fire Spin",
-        "Flamethrower",
-        "Ember",
-        "Recover",
-        "Flail",
-        "Double Kick",
-        "Psyshock",
-        "Leech Seed",
-        "Foul Gas",
-        "Horn Hazard",
-        "Thunder Jolt",
-        "Water Gun",
-        "Bubble",
-        "Withdraw",
-        "Star Freeze",
-        "Bind",
-        "Poisonpowder",
-        "Bubblebeam",
-      ].includes(attack.name))
-  );
-}
-function attackDamage(
-  s: GameState,
-  a: Piece,
-  b: Piece,
-  attack: Attack,
-  catalog: Catalog,
-  override?: number,
-) {
-  const card = catalog[a.card];
-  let damage = Number.parseInt(attack.damage) || 0;
-  const text = attack.text;
-  if (override !== undefined) damage = override;
-  else if (card.setId === "base1") {
-    if (attack.name === "Flail") damage = a.damage;
-    if (attack.name === "Double Kick")
-      damage = 30 * (Number(flip(s)) + Number(flip(s)));
-    if (attack.name === "Horn Hazard" && !flip(s)) damage = 0;
-    if (attack.name === "Water Gun")
-      damage +=
-        10 *
-        Math.min(
-          2,
-          Math.max(
-            0,
-            a.energy.filter((id) => energyType(catalog[id]) === "Water")
-              .length - 1,
-          ),
-        );
-    if (
-      ["Bubble", "Bubblebeam", "Psyshock", "Star Freeze", "Bind"].includes(
-        attack.name,
-      ) &&
-      flip(s)
-    )
-      condition(b, "Paralyzed");
-    if (attack.name === "Foul Gas")
-      condition(b, flip(s) ? "Poisoned" : "Confused");
-    if (attack.name === "Poisonpowder") condition(b, "Poisoned");
-    if (attack.name === "Thunder Jolt" && !flip(s)) a.damage += 10;
-    if (attack.name === "Withdraw" && flip(s)) a.shield = s.turn + 1;
-    if (attack.name === "Recover") a.damage = 0;
-    const discard = text.match(
-      /Discard (\d+) (Fire |Psychic |Water )?Energy card/,
-    );
-    if (discard) {
-      const count = Number(discard[1]);
-      for (let n = 0; n < count; n++) {
-        const i = discard[2]
-          ? a.energy.findIndex(
-              (id) => energyType(catalog[id]) === discard[2].trim(),
-            )
-          : 0;
-        if (i >= 0) {
-          const [id] = a.energy.splice(i, 1);
-          s.players[s.current].discard.push({
-            uid: `${a.uid}-cost-${s.seq}-${n}`,
-            card: id,
-          });
-        }
-      }
-    }
-  }
-  if (damage > 0) {
-    const weak = catalog[b.card].weaknesses.find((w) =>
-      card.types.includes(w.type),
-    );
-    const resist = catalog[b.card].resistances.find((w) =>
-      card.types.includes(w.type),
-    );
-    if (weak)
-      damage = weak.value.includes("×")
-        ? damage * (Number(weak.value.replace("×", "")) || 2)
-        : damage + (Number(weak.value) || 0);
-    if (resist) damage += Number(resist.value) || 0;
-    if (b.shield >= s.turn) damage = 0;
-    damage = Math.max(0, damage);
-  }
-  b.damage += damage;
-  if (attack.name === "Leech Seed" && card.setId === "base1" && damage > 0)
-    a.damage = Math.max(0, a.damage - 10);
-  return damage;
 }
 export function applyPost(
   state: GameState,
@@ -498,6 +134,9 @@ export function applyPost(
     from?: string;
     to?: string;
     kind?: string;
+    choice?: string;
+    resolution?: string;
+    values?: string[];
   };
   let data: Payload;
   try {
@@ -569,15 +208,43 @@ export function applyPost(
   if (index < 0) return fail("Join this table first.");
   const p = s.players[index];
   const opponent = s.players[1 - index];
+  const resolve = (intent: EffectIntent) => {
+    const result = resolveEffect(s, intent, catalog);
+    return result.error ? fail(result.error) : result;
+  };
   if (post.action === "concede") {
     if (s.status === "finished" || !opponent) return fail("No active match.");
     s.status = "finished";
     s.winner = opponent.id;
+    delete s.pending;
     log(s, `${p.name} conceded. ${opponent.name} wins.`, "win");
     return { state: s };
   }
   if (s.status === "finished")
     return fail("This match has finished. Start a new table.");
+  if (post.action === "choose") {
+    const pending = s.pending;
+    if (
+      !pending ||
+      data.resolution !== pending.id ||
+      data.choice !== pending.choice.key
+    )
+      return fail("That choice has expired.");
+    if (pending.choice.player !== p.id)
+      return fail("This choice belongs to the other Trainer.");
+    const values = data.values;
+    if (!Array.isArray(values) || values.some((v) => typeof v !== "string"))
+      return fail("Choose valid options.");
+    const result = resolveEffect(
+      s,
+      pending.intent,
+      catalog,
+      { ...pending.answers, [pending.choice.key]: values },
+      pending.id,
+    );
+    return result.error ? fail(result.error) : result;
+  }
+  if (s.pending) return fail("Finish the current card effect first.");
   if (post.action === "ready") {
     if (s.status !== "setup") return fail("Wait for another Trainer.");
     if (!p.active) return fail("Choose an Active Basic Pokémon first.");
@@ -634,7 +301,7 @@ export function applyPost(
         target.stack.push(target.card);
         target.card = h.card;
         target.evolved = s.turn;
-        target.conditions = [];
+        clearAttackEffects(target);
         log(s, `${p.name} evolved into ${c.name}.`);
         effect(s, "evolve", c.name);
       }
@@ -658,6 +325,13 @@ export function applyPost(
           );
         p.supportPlayed = true;
       }
+      if (trainerHandler(c))
+        return resolve({
+          action: "trainer",
+          player: p.id,
+          uid: h.uid,
+          target: data.target,
+        });
       // Keep arbitrary printed effects explicit; tabletop tools resolve them.
       if (c.subtypes.includes("Stadium")) {
         if (s.stadium) {
@@ -673,36 +347,9 @@ export function applyPost(
         target.tools.push(h.card);
       } else p.discard.push(h);
       p.hand.splice(hi, 1);
-      if (c.name === "Bill") draw(s, p, 2);
-      else if (c.name === "Professor Oak") {
-        p.discard.push(...p.hand);
-        p.hand = [];
-        draw(s, p, 7);
-      } else if (c.name === "Pokémon Center") {
-        for (const v of allPieces(p)) {
-          if (v.damage) {
-            v.damage = 0;
-            p.discard.push(
-              ...v.energy.map((id, k) => ({
-                uid: `${v.uid}-heal-${s.seq}-${k}`,
-                card: id,
-              })),
-            );
-            v.energy = [];
-          }
-        }
-      } else if (c.name === "Switch") {
-        const bi = p.bench.findIndex((b) => b.uid === data.target);
-        if (bi < 0 || !p.active)
-          return fail("Choose a Benched Pokémon to switch.");
-        const old = p.active;
-        old.conditions = [];
-        p.active = p.bench[bi];
-        p.bench[bi] = old;
-      }
       log(
         s,
-        `${p.name} played ${c.name}.${!["Bill", "Professor Oak", "Pokémon Center", "Switch"].includes(c.name) ? " Resolve its printed effect with table tools." : ""}`,
+        `${p.name} played ${c.name}. Resolve its printed effect with table tools.`,
         "trainer",
       );
       return { state: s };
@@ -711,80 +358,14 @@ export function applyPost(
     return { state: s };
   }
   if (setup) return fail("Place your Basic Pokémon and ready up first.");
-  if (post.action === "attack") {
-    const a = p.active,
-      b = opponent?.active;
-    if (!a || !b) return fail("Both Trainers need an Active Pokémon.");
-    if (s.turn === 1)
-      return fail("The first player cannot attack on the first turn.");
-    if (a.conditions.some((c) => ["Asleep", "Paralyzed"].includes(c)))
-      return fail(
-        `${catalog[a.card].name} cannot attack while ${a.conditions.join(", ")}.`,
-      );
-    const attack = catalog[a.card].attacks[Number(data.index)];
-    if (!attack) return fail("Choose an attack.");
-    if (!canPay(a, attack, catalog))
-      return fail("Attach the required Energy first.");
-    if (
-      !automaticAttack(catalog[a.card], attack) &&
-      (typeof data.damage !== "number" ||
-        !Number.isInteger(data.damage) ||
-        data.damage < 0 ||
-        data.damage > 9990)
-    )
-      return fail(
-        "Enter this attack’s damage and resolve its printed effects with table tools.",
-      );
-    if (a.conditions.includes("Confused") && !flip(s)) {
-      a.damage += 30;
-      log(s, `${catalog[a.card].name} hurt itself in confusion.`, "attack");
-      nextTurn(s, catalog);
-      return { state: s };
-    }
-    const damage = attackDamage(
-      s,
-      a,
-      b,
-      attack,
-      catalog,
-      automaticAttack(catalog[a.card], attack) ? undefined : data.damage,
-    );
-    log(
-      s,
-      `${catalog[a.card].name} used ${attack.name} for ${damage} damage.`,
-      "attack",
-    );
-    effect(s, "attack", `${attack.name} · ${damage}`);
-    checkKnockouts(s, catalog);
-    if (s.status === "playing") nextTurn(s, catalog);
-    return { state: s };
-  }
-  if (post.action === "retreat") {
-    if (p.retreated) return fail("You have already retreated this turn.");
-    if (!p.active) return fail("No Active Pokémon.");
-    if (p.active.conditions.some((c) => ["Asleep", "Paralyzed"].includes(c)))
-      return fail("An Asleep or Paralyzed Pokémon cannot retreat.");
-    const idx = p.bench.findIndex((b) => b.uid === data.uid);
-    if (idx < 0) return fail("Choose a Benched Pokémon.");
-    const cost = catalog[p.active.card].retreat;
-    if (p.active.energy.length < cost)
-      return fail(
-        `Retreat needs ${cost} attached Energy card${cost !== 1 ? "s" : ""}.`,
-      );
-    const old = p.active;
-    const paid = old.energy.splice(0, cost);
-    p.discard.push(
-      ...paid.map((card, i) => ({
-        uid: `${old.uid}-retreat-${s.seq}-${i}`,
-        card,
-      })),
-    );
-    old.conditions = [];
-    p.active = p.bench[idx];
-    p.bench[idx] = old;
-    p.retreated = true;
-    log(s, `${p.name} retreated and promoted ${catalog[p.active.card].name}.`);
-    return { state: s };
+  if (["attack", "retreat", "power", "discardDoll"].includes(post.action)) {
+    return resolve({
+      action: post.action as EffectIntent["action"],
+      player: p.id,
+      uid: data.uid,
+      index: data.index,
+      damage: data.damage,
+    });
   }
   if (post.action === "end") {
     nextTurn(s, catalog);
@@ -882,8 +463,12 @@ export function applyPost(
     const idx = Number(data.index);
     if (!Number.isInteger(idx) || idx < 0 || idx >= target[key].length)
       return fail("Choose an attachment.");
-    const [card] = target[key].splice(idx, 1);
-    q.discard.push({ uid: `${target.uid}-detach-${s.seq}`, card });
+    const card = target[key][idx];
+    if (key === "energy") discardEnergy(s, q, target, [idx]);
+    else {
+      target.tools.splice(idx, 1);
+      q.discard.push({ uid: `${target.uid}-detach-${s.seq}`, card });
+    }
     log(
       s,
       `${p.name} discarded ${catalog[card].name} from ${catalog[target.card].name} (card effect).`,
@@ -896,7 +481,7 @@ export function applyPost(
     const idx = q?.bench.findIndex((b) => b.uid === data.uid) ?? -1;
     if (!q || !q.active || idx < 0) return fail("Choose a Benched Pokémon.");
     const old = q.active;
-    old.conditions = [];
+    clearAttackEffects(old);
     q.active = q.bench[idx];
     q.bench[idx] = old;
     log(
@@ -999,6 +584,39 @@ export function botAction(
 ): { action: string; data: Record<string, unknown> } | null {
   const p = s.players.find((p) => p.id === playerId);
   if (!p || s.status !== "playing") return null;
+  if (s.pending) {
+    const { choice, id } = s.pending;
+    if (choice.player !== playerId) return null;
+    let options = choice.options;
+    if (choice.key === "heal-amount") options = [...options].reverse();
+    if (choice.key === "retreat-energy") {
+      const cost = catalog[p.active!.card].retreat;
+      const chosen: string[] = [];
+      let paid = 0;
+      for (const o of [...options].sort(
+        (a, b) =>
+          attachmentEnergy(p.active!, Number(b.value), catalog).length -
+          attachmentEnergy(p.active!, Number(a.value), catalog).length,
+      )) {
+        chosen.push(o.value);
+        paid += attachmentEnergy(p.active!, Number(o.value), catalog).length;
+        if (paid >= cost) break;
+      }
+      return {
+        action: "choose",
+        data: { resolution: id, choice: choice.key, values: chosen },
+      };
+    }
+    return {
+      action: "choose",
+      data: {
+        resolution: id,
+        choice: choice.key,
+        values: options.slice(0, choice.max).map((o) => o.value),
+      },
+    };
+  }
+
   if (!p.active && p.bench.length)
     return { action: "promote", data: { uid: p.bench[0].uid } };
   if (
@@ -1049,12 +667,29 @@ export function botAction(
   }
   const bill = p.hand.find((h) => catalog[h.card].name === "Bill");
   if (bill) return { action: "play", data: { uid: bill.uid } };
+  if (
+    p.active.card === "base1-4" &&
+    p.active.energy.length &&
+    powerAvailable(p.active) &&
+    (p.active.effects?.energyBurnTurn !== s.turn ||
+      p.active.burnedEnergy?.length !== p.active.energy.length)
+  )
+    return { action: "power", data: { uid: p.active.uid } };
   const attacks = catalog[p.active.card].attacks
     .map((a, i) => ({ a, i }))
     .filter(
       ({ a }) =>
         canPay(p.active!, a, catalog) &&
-        automaticAttack(catalog[p.active!.card], a),
+        automaticAttack(catalog[p.active!.card], a) &&
+        !resolveEffect(
+          s,
+          {
+            action: "attack",
+            player: p.id,
+            index: catalog[p.active!.card].attacks.indexOf(a),
+          },
+          catalog,
+        ).error,
     )
     .sort(
       (a, b) =>

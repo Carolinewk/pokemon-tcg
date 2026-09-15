@@ -27,6 +27,13 @@ const catalog = Object.fromEntries(
 );
 const room = "test" + Date.now().toString(36);
 const clients = [];
+let nonce = 0;
+const effectDeck = [
+  ...["base1-57", "base1-46", "base1-45", "base1-71", "base1-95"].flatMap(
+    (id) => Array(4).fill(id),
+  ),
+  ...Array(40).fill("base1-98"),
+];
 const wait = async (predicate, label, limit = 18000) => {
   const start = Date.now();
   while (Date.now() - start < limit) {
@@ -38,7 +45,7 @@ const wait = async (predicate, label, limit = 18000) => {
 const post = (client, pid, action, data) =>
   client.post({
     pid,
-    id: `${pid}-${action}-${Date.now()}`,
+    id: `${pid}-${action}-${Date.now()}-${nonce++}`,
     action,
     payload: JSON.stringify(data),
   });
@@ -62,8 +69,8 @@ try {
   console.log("PASS: both clients connected to the VibiNet room relay");
   post(a, "a", "join", {
     name: "Alice",
-    deckName: STARTERS[0].name,
-    cards: STARTERS[0].cards,
+    deckName: "Base Set effects test",
+    cards: effectDeck,
   });
   await wait(
     () =>
@@ -73,8 +80,8 @@ try {
   );
   post(b, "b", "join", {
     name: "Bob",
-    deckName: STARTERS[1].name,
-    cards: STARTERS[1].cards,
+    deckName: "Base Set effects test",
+    cards: effectDeck,
   });
   await wait(
     () =>
@@ -105,6 +112,46 @@ try {
     () => [a, b].every((c) => c.compute_render_state().status === "playing"),
     "both ready",
   );
+  const synchronizedMove = async (pid, action, data = {}) => {
+    const seq = a.compute_render_state().seq;
+    post(pid === "a" ? a : b, pid, action, data);
+    await wait(
+      () => clients.every((c) => c.compute_render_state().seq > seq),
+      `${action} acknowledged by every client`,
+    );
+    const next = a.compute_render_state();
+    for (const c of clients) assert.deepEqual(c.compute_render_state(), next);
+    return next;
+  };
+  const getHandCard = async (pid, match) => {
+    let p = a.compute_render_state().players.find((p) => p.id === pid);
+    let card = p.hand.find((h) => match(catalog[h.card]));
+    if (card) return card;
+    for (const from of ["deck", "discard", "prizes"]) {
+      card = p[from].find((h) => match(catalog[h.card]));
+      if (card) {
+        await synchronizedMove(pid, "move", {
+          from,
+          to: "hand",
+          uid: card.uid,
+        });
+        return card;
+      }
+    }
+    throw Error("Test fixture card unavailable");
+  };
+  const addBench = async (pid) => {
+    while (
+      a.compute_render_state().players.find((p) => p.id === pid).bench.length <
+      2
+    ) {
+      const h = await getHandCard(pid, isBasic);
+      await synchronizedMove(pid, "play", { uid: h.uid });
+    }
+  };
+  await addBench(
+    a.compute_render_state().players[a.compute_render_state().current].id,
+  );
   const state = a.compute_render_state();
   const current = state.players[state.current];
   const client = current.id === "a" ? a : b;
@@ -132,6 +179,88 @@ try {
   await new Promise((r) => setTimeout(r, 1400));
   assert.equal(a.compute_render_state().players.length, 2);
   console.log("PASS: third player cannot take an occupied seat");
+  const attacker =
+    a.compute_render_state().players[a.compute_render_state().current].id;
+  await addBench(attacker);
+  let p = a.compute_render_state().players.find((p) => p.id === attacker);
+  if (p.active.card !== "base1-57") {
+    if (!p.bench.some((c) => c.card === "base1-57")) {
+      const bird = await getHandCard(attacker, (c) => c.id === "base1-57");
+      await synchronizedMove(attacker, "play", { uid: bird.uid });
+    }
+    p = a.compute_render_state().players.find((p) => p.id === attacker);
+    await synchronizedMove(attacker, "swap", {
+      owner: attacker,
+      uid: p.bench.find((c) => c.card === "base1-57").uid,
+    });
+  }
+  for (let i = 0; i < 2; i++) {
+    const energy = await getHandCard(attacker, (c) => c.id === "base1-98");
+    await synchronizedMove(attacker, "play", {
+      uid: energy.uid,
+      target: a.compute_render_state().players.find((p) => p.id === attacker)
+        .active.uid,
+      manual: i > 0,
+    });
+  }
+  const search = await getHandCard(attacker, (c) => c.id === "base1-71");
+  while (
+    a.compute_render_state().players.find((p) => p.id === attacker).hand
+      .length < 4
+  ) {
+    p = a.compute_render_state().players.find((p) => p.id === attacker);
+    await synchronizedMove(attacker, "move", {
+      from: "deck",
+      to: "hand",
+      uid: p.deck[0].uid,
+    });
+  }
+  let pending = (await synchronizedMove(attacker, "play", { uid: search.uid }))
+    .pending;
+  assert.equal(pending.choice.key, "search-cost");
+  while (pending) {
+    await synchronizedMove(pending.choice.player, "choose", {
+      resolution: pending.id,
+      choice: pending.choice.key,
+      values: pending.choice.options
+        .slice(0, pending.choice.max)
+        .map((o) => o.value),
+    });
+    pending = a.compute_render_state().pending;
+  }
+  console.log(
+    "PASS: Computer Search choices and discards synchronize on all clients",
+  );
+  pending = (await synchronizedMove(attacker, "attack", { index: 0 })).pending;
+  assert.equal(pending.choice.key, "force-switch");
+  assert.notEqual(pending.choice.player, attacker);
+  assert.equal(a.compute_render_state().turn, 2);
+  const reconnect = connectTable(
+    room,
+    catalog,
+    process.env.POKETABLE_TEST_ORIGIN || "http://localhost:5174",
+  );
+  clients.push(reconnect);
+  await wait(
+    () => reconnect.compute_render_state().pending?.id === pending.id,
+    "reconnect during pending Whirlwind",
+  );
+  assert.deepEqual(reconnect.compute_render_state(), a.compute_render_state());
+  const target = pending.choice.options.at(-1).value;
+  const after = await synchronizedMove(pending.choice.player, "choose", {
+    resolution: pending.id,
+    choice: pending.choice.key,
+    values: [target],
+  });
+  assert.equal(after.turn, 3);
+  assert.equal(after.pending, undefined);
+  assert.equal(
+    after.players.find((p) => p.id === pending.choice.player).active.uid,
+    target,
+  );
+  console.log(
+    "PASS: Whirlwind waits for the opponent, survives reconnect, and ends the turn after their selection",
+  );
   console.log("MULTIPLAYER INTEGRATION PASSED");
 } finally {
   clients.forEach((c) => c.close());

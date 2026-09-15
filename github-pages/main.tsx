@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "@/app/globals.css";
 import "@/app/themes.css";
 import "@/app/collection-theme.css";
+import "@/app/effects.css";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>

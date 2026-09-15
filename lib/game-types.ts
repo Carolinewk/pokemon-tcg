@@ -1,0 +1,140 @@
+export type Attack = {
+  name: string;
+  cost: string[];
+  damage: string;
+  text: string;
+  convertedEnergyCost: number;
+};
+export type Card = {
+  id: string;
+  name: string;
+  supertype: string;
+  subtypes: string[];
+  hp: number;
+  types: string[];
+  evolvesFrom: string;
+  attacks: Attack[];
+  abilities: { name: string; text: string; type: string }[];
+  rules: string[];
+  weaknesses: { type: string; value: string }[];
+  resistances: { type: string; value: string }[];
+  retreat: number;
+  image: string;
+  small: string;
+  set: string;
+  setId: string;
+  number: string;
+  rarity: string;
+  date: string;
+  legalities: Record<string, string>;
+};
+export type Catalog = Record<string, Card>;
+export type AttackResult = {
+  turn: number;
+  damage: number;
+  conditions: string[];
+  poisonDamage?: number;
+  discardedEnergy?: number;
+  weakness?: string;
+  sandAttack?: boolean;
+  amnesia?: string;
+};
+export type PieceEffects = {
+  poisonDamage?: number;
+  preventDamageUntil?: number;
+  preventAllUntil?: number;
+  hardenUntil?: number;
+  destinyBondUntil?: number;
+  sandAttackUntil?: number;
+  amnesia?: { name: string; until: number };
+  weakness?: string;
+  resistance?: string;
+  energyBurnTurn?: number;
+};
+export type Piece = {
+  uid: string;
+  card: string;
+  damage: number;
+  energy: string[];
+  stack: string[];
+  tools: string[];
+  conditions: string[];
+  entered: number;
+  evolved: number;
+  shield: number;
+  effects?: PieceEffects;
+  usedAttacks?: string[];
+  lastAttack?: AttackResult;
+  /** A Buzzap attachment keeps its chosen type until it leaves play. */
+  energyTypes?: Record<number, string>;
+  burnedEnergy?: number[];
+  trainerAttachments?: { uid: string; card: string; expires: number }[];
+};
+export type ChoiceOption = { value: string; label: string; card?: string };
+export type EffectChoice = {
+  key: string;
+  player: string;
+  title: string;
+  options: ChoiceOption[];
+  min: number;
+  max: number;
+  ordered?: boolean;
+};
+export type EffectIntent = {
+  action: "attack" | "trainer" | "power" | "retreat" | "discardDoll";
+  player: string;
+  uid?: string;
+  index?: number;
+  target?: string;
+  damage?: number;
+};
+export type PendingEffect = {
+  id: string;
+  intent: EffectIntent;
+  answers: Record<string, string[]>;
+  choice: EffectChoice;
+};
+export type HandCard = { uid: string; card: string };
+export type Player = {
+  id: string;
+  name: string;
+  deckName: string;
+  deck: HandCard[];
+  hand: HandCard[];
+  prizes: HandCard[];
+  discard: HandCard[];
+  active: Piece | null;
+  bench: Piece[];
+  ready: boolean;
+  energyPlayed: boolean;
+  supportPlayed: boolean;
+  retreated: boolean;
+  turns: number;
+  mulligans: number;
+};
+export type GameState = {
+  players: Player[];
+  status: "waiting" | "setup" | "playing" | "finished";
+  turn: number;
+  current: number;
+  seed: number;
+  seq: number;
+  log: { id: number; text: string; kind: string }[];
+  winner: string | null;
+  coin: string | null;
+  stadium: (HandCard & { owner: string }) | null;
+  seen: string[];
+  effect: { id: number; kind: string; text: string } | null;
+  pending?: PendingEffect;
+  /** Public card reveals, separate from the currently resolving choice. */
+  reveals?: { id: number; title: string; cards: string[] }[];
+};
+export type Post = { pid: string; id: string; action: string; payload: string };
+export type Deck = {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  cover: string;
+  cards: string[];
+};
