@@ -16,11 +16,34 @@ import {
   piece,
   removePiece,
   shuffle,
-  switchActive,
 } from "../../game-core";
 import { EffectContext, type Answers } from "../context";
 
+import * as R from "../classic/state";
+import { evolvePiece, switchPokemon } from "../classic/operations";
+import { onPlayPower } from "../classic/powers";
 export class TrainerContext extends EffectContext {
+  paidCards: Record<string, HandCard[]> = {};
+  paidEnergy: Record<string, number[]> = {};
+  paidPieces: Record<string, Piece> = {};
+  override chooseCards(...args: Parameters<EffectContext["chooseCards"]>) {
+    return this.paidCards[args[0]] || super.chooseCards(...args);
+  }
+  override chooseEnergy(...args: Parameters<EffectContext["chooseEnergy"]>) {
+    return this.paidEnergy[args[0]] || super.chooseEnergy(...args);
+  }
+  override choosePiece(...args: Parameters<EffectContext["choosePiece"]>) {
+    return this.paidPieces[args[0]] || super.choosePiece(...args);
+  }
+  override discardHand(cards: HandCard[]) {
+    super.discardHand(
+      cards.filter((h) => !this.player.discard.some((q) => q.uid === h.uid)),
+    );
+  }
+  discardCost(key: string, p: Piece, indices: number[]) {
+    if (!this.paidEnergy[key])
+      discardEnergy(this.state, this.player, p, indices);
+  }
   sourceHandled = false;
   constructor(
     s: GameState,
@@ -56,7 +79,10 @@ function heal(c: TrainerContext, target: Piece, max: number) {
   target.damage -= Number(amount);
 }
 export function clefairyDoll(c: TrainerContext) {
-  c.require(c.player.bench.length < 5, "Your Bench is full (5 Pokémon).");
+  c.require(
+    c.player.bench.length < R.narrowGym(c.state),
+    "Your Bench is full (5 Pokémon).",
+  );
   c.player.bench.push(piece(c.source, c.state.turn));
   c.sourceHandled = true;
 }
@@ -81,7 +107,7 @@ export function devolutionSpray(c: TrainerContext) {
   const target = c.choosePiece(
     "devolve-target",
     "Choose a Pokémon to devolve",
-    allPieces(c.player).filter((p) => p.stack.length),
+    allPieces(c.player).filter((p) => p.stack.length && !p.shape),
   );
   const stack = [...target.stack, target.card];
   const [stage] = c.choose(
@@ -104,6 +130,8 @@ export function devolutionSpray(c: TrainerContext) {
   target.stack = stack.slice(0, cut - 1);
   target.evolved = c.state.turn;
   clearAttackEffects(target);
+  delete target.charred;
+  delete target.shiftedType;
 }
 export function impostorProfessorOak(c: TrainerContext) {
   c.opponent.deck.push(...c.opponent.hand);
@@ -158,6 +186,10 @@ export function pokemonBreeder(c: TrainerContext) {
     c.player.turns >= 2,
     "You can evolve starting with your second turn.",
   );
+  c.require(
+    !R.evolutionBlocked(c.state, c.catalog),
+    "Prehistoric Power prevents evolution.",
+  );
   const targets = allPieces(c.player).filter(
     (p) =>
       isBasic(c.catalog[p.card]) &&
@@ -176,10 +208,8 @@ export function pokemonBreeder(c: TrainerContext) {
     c.player.hand.filter((h) => breederMatches(c, target, h)),
   );
   c.player.hand = c.player.hand.filter((h) => h.uid !== evolution.uid);
-  target.stack.push(target.card);
-  target.card = evolution.card;
-  target.evolved = c.state.turn;
-  clearAttackEffects(target);
+  evolvePiece(c, target, evolution);
+  onPlayPower(c, target);
 }
 export function pokemonTrader(c: TrainerContext) {
   c.require(c.player.deck.length, "Your deck is empty.");
@@ -241,7 +271,7 @@ export function superEnergyRemoval(c: TrainerContext) {
     0,
     2,
   );
-  discardEnergy(c.state, c.player, from, cost);
+  c.discardCost("ser-cost", from, cost);
   discardEnergy(c.state, c.opponent, target, removed);
 }
 export function defender(c: TrainerContext) {
@@ -314,7 +344,10 @@ export function pokemonCenter(c: TrainerContext) {
     }
 }
 export function pokemonFlute(c: TrainerContext) {
-  c.require(c.opponent.bench.length < 5, "Your opponent’s Bench is full.");
+  c.require(
+    c.opponent.bench.length < R.narrowGym(c.state),
+    "Your opponent’s Bench is full.",
+  );
   const [selected] = c.chooseCards(
     "flute",
     "Put a Basic Pokémon from the opponent’s discard onto their Bench",
@@ -342,7 +375,10 @@ export function professorOak(c: TrainerContext) {
   draw(c.state, c.player, 7);
 }
 export function revive(c: TrainerContext) {
-  c.require(c.player.bench.length < 5, "Your Bench is full.");
+  c.require(
+    c.player.bench.length < R.narrowGym(c.state),
+    "Your Bench is full.",
+  );
   const [selected] = c.chooseCards(
     "revive",
     "Revive a Basic Pokémon onto your Bench",
@@ -364,7 +400,7 @@ export function superPotion(c: TrainerContext) {
     "Discard an Energy from that Pokémon",
     target,
   );
-  discardEnergy(c.state, c.player, target, cost);
+  c.discardCost("super-potion-cost", target, cost);
   heal(c, target, 4);
 }
 export function bill(c: TrainerContext) {
@@ -389,7 +425,7 @@ export function gustOfWind(c: TrainerContext) {
     "Choose the opponent’s new Active Pokémon",
     c.opponent.bench,
   );
-  switchActive(c.opponent, target.uid);
+  switchPokemon(c, c.opponent, target);
 }
 export function potion(c: TrainerContext) {
   const target = c.choosePiece(
@@ -404,7 +440,7 @@ export function switchTrainer(c: TrainerContext) {
     ? c.player.bench.find((p) => p.uid === c.target)
     : c.choosePiece("switch", "Choose your new Active Pokémon", c.player.bench);
   c.require(target, "Choose a Benched Pokémon to switch.");
-  switchActive(c.player, target.uid);
+  switchPokemon(c, c.player, target);
 }
 export const BASE_TRAINERS: Record<string, (c: TrainerContext) => void> = {
   "base1-70": clefairyDoll,

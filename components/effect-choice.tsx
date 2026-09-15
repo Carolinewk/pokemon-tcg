@@ -23,7 +23,9 @@ export function EffectChoiceDialog({
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const { choice } = pending;
-  const valid = selected.length >= choice.min && selected.length <= choice.max;
+  const valid = choice.input
+    ? query.trim().length > 0 && query.length <= 80
+    : selected.length >= choice.min && selected.length <= choice.max;
   const options = choice.options.filter((o) =>
     o.label.toLowerCase().includes(query.toLowerCase()),
   );
@@ -37,12 +39,29 @@ export function EffectChoiceDialog({
       >
         <DialogTitle>{choice.title}</DialogTitle>
         <DialogDescription>
-          {choice.ordered
-            ? "Select cards in the order you want to draw them. Click a selected card to remove it from the order."
-            : choice.min === choice.max
-              ? `Select ${choice.min} ${choice.min === 1 ? "option" : "options"}.`
-              : `Select ${choice.min === 0 ? "up to" : `${choice.min}–`} ${choice.max} options.`}
+          {choice.input
+            ? "Enter your answer below."
+            : choice.ordered
+              ? "Select cards in the order you want to draw them. Click a selected card to remove it from the order."
+              : choice.min === choice.max
+                ? `Select ${choice.min} ${choice.min === 1 ? "option" : "options"}.`
+                : `Select ${choice.min === 0 ? "up to" : `${choice.min}–`} ${choice.max} options.`}
         </DialogDescription>
+        {choice.referenceCard && (
+          <div className="effect-reference-card">
+            {renderCard(catalog[choice.referenceCard])}
+          </div>
+        )}
+        {choice.input && (
+          <input
+            className="effect-choice-search"
+            aria-label={choice.title}
+            value={query}
+            maxLength={80}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Your answer…"
+          />
+        )}
         {choice.options.length > 8 && (
           <input
             className="effect-choice-search"
@@ -92,24 +111,29 @@ export function EffectChoiceDialog({
               )}
             </button>
           ))}
-          {!options.length && <p>No matching cards.</p>}
+          {!choice.input && !options.length && <p>No matching cards.</p>}
         </div>
         <div className="effect-choice-footer">
           <span aria-live="polite">
             {submitted
               ? "Waiting for the table…"
-              : `${selected.length} / ${choice.max} selected`}
+              : choice.input
+                ? ""
+                : `${selected.length} / ${choice.max} selected`}
           </span>
           <button
             className="button primary"
             disabled={!valid || submitted}
             onClick={() => {
-              if (onChoose(selected)) setSubmitted(true);
+              if (onChoose(choice.input ? [query.trim()] : selected))
+                setSubmitted(true);
             }}
           >
-            {selected.length === 0 && choice.min === 0
-              ? "Continue without selecting"
-              : "Confirm selection"}
+            {choice.input
+              ? "Confirm answer"
+              : selected.length === 0 && choice.min === 0
+                ? "Continue without selecting"
+                : "Confirm selection"}
           </button>
         </div>
       </DialogContent>
@@ -124,6 +148,39 @@ export function pieceEffectLabels(
 ): string[] {
   const e = p.effects || {};
   return [
+    ...(p.charred ? ["Char"] : []),
+    ...(p.shiftedType ? [`Type: ${p.shiftedType}`] : []),
+    ...(p.shape ? [`Shapeshift: ${catalog[p.shape.card].name}`] : []),
+    ...Object.entries(p.marks || {})
+      .filter(([, m]) => m.until >= turn)
+      .map(
+        ([key, m]) =>
+          (
+            ({
+              noRetreat: "Cannot retreat",
+              noAttack: "Cannot attack",
+              jawClamp: "Cannot retreat or switch",
+              powerOff: "Pokémon Power disabled",
+              conditionGuard: "Protected from conditions",
+              endure: "Endure",
+              shadowImages: "Shadow Images",
+              reduceDamage: `Damage reduced by ${m.value || 0}`,
+              attackDisabled: `${m.name} unavailable`,
+              giantGrowth: "Giant Growth",
+              mirrorShell: "Mirror Shell",
+              crosscounter: "Crosscounter",
+              fireWall: "Fire Wall",
+              cannotAttackSource: "Attack restriction",
+              noEnergy: "Cannot attach Energy",
+              halveDamage: "Damage halved",
+              screech: "Screech",
+              doubleDamage: `${m.name}: double damage`,
+              nextDamage: `${m.name}: boosted`,
+              recall: "Recall",
+            }) as Record<string, string>
+          )[key],
+      )
+      .filter(Boolean),
     ...p.conditions.map((c) =>
       c === "Poisoned" && e.poisonDamage === 20 ? "Toxic · 20 damage" : c,
     ),
@@ -160,8 +217,7 @@ export function RevealedCardsDialog({
       <DialogContent className="effect-choice-dialog">
         <DialogTitle>Revealed cards</DialogTitle>
         <DialogDescription>
-          These cards were shown to both Trainers by the card effect. Their
-          names remain in the match log.
+          A card effect lets you see these cards.
         </DialogDescription>
         <div className="effect-choice-options">
           {reveals.map((reveal, i) => (

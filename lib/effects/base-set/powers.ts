@@ -8,6 +8,7 @@ import {
   removePiece,
   takeEnergy,
 } from "../../game-core";
+import { maximumHP, pokemonCard } from "../classic/state";
 import { attachmentEnergy, ENERGY_TYPES } from "./energy";
 
 export function powerAvailable(p: Piece) {
@@ -24,7 +25,8 @@ export function alakazamDamageSwap(c: EffectContext) {
       (p) =>
         p.damage >= 10 &&
         pieces.some(
-          (q) => q.uid !== p.uid && q.damage + 10 < c.catalog[q.card].hp,
+          (q) =>
+            q.uid !== p.uid && q.damage + 10 < maximumHP(c.state, q, c.catalog),
         ),
     ),
   );
@@ -32,7 +34,8 @@ export function alakazamDamageSwap(c: EffectContext) {
     "damage-target",
     "Move that counter to…",
     pieces.filter(
-      (p) => p.uid !== from.uid && p.damage + 10 < c.catalog[p.card].hp,
+      (p) =>
+        p.uid !== from.uid && p.damage + 10 < maximumHP(c.state, p, c.catalog),
     ),
   );
   from.damage -= 10;
@@ -40,7 +43,7 @@ export function alakazamDamageSwap(c: EffectContext) {
 }
 export function blastoiseRainDance(c: EffectContext) {
   const targets = allPieces(c.player).filter((p) =>
-    c.catalog[p.card].types.includes("Water"),
+    pokemonCard(c.state, p, c.catalog).types.includes("Water"),
   );
   c.require(targets.length, "Rain Dance needs a Water Pokémon in play.");
   const [energy] = c.chooseCards(
@@ -59,7 +62,7 @@ export function blastoiseRainDance(c: EffectContext) {
     targets,
   );
   c.player.hand = c.player.hand.filter((h) => h.uid !== energy.uid);
-  target.energy.push(energy.card);
+  c.attachEnergy(target, energy);
   // This is a Power, so the normal Energy attachment stays available.
 }
 export function charizardEnergyBurn(c: EffectContext, source: Piece) {
@@ -95,7 +98,9 @@ export function venusaurEnergyTrans(c: EffectContext) {
     "Move Grass Energy from…",
     pieces.filter((p) =>
       p.energy.some((_, i) =>
-        attachmentEnergy(p, i, c.catalog).includes("Grass"),
+        attachmentEnergy(p, i, c.catalog, c.state).some(
+          (t) => t === "Grass" || t === "Any",
+        ),
       ),
     ),
   );

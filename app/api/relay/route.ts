@@ -5,7 +5,9 @@ const reply = (request: Request, body: unknown, status = 200) =>
   Response.json(body, { status, headers: relayHeaders(request) });
 const validRoom = (room: unknown): room is string =>
   typeof room === "string" &&
-  /^poketable-(?:v2-20444|v3-base-set-20444)-[a-z0-9]{6,24}$/.test(room);
+  /^poketable-(?:v2-20444|v3-base-set-20444|v4-neo-genesis-20444)-[a-z0-9]{6,24}$/.test(
+    room,
+  );
 export async function GET(request: Request) {
   if (!relayOriginAllowed(request))
     return reply(request, { error: "This site cannot access the relay." }, 403);

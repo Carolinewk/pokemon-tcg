@@ -113,7 +113,8 @@ import {
   pieceEffectLabels,
   RevealedCardsDialog,
 } from "@/components/effect-choice";
-import { BASE_POWERS, powerAvailable } from "@/lib/effects/base-set/powers";
+import { POWERS, availablePowers } from "@/lib/effects/classic/powers";
+import * as classic from "@/lib/effects/classic/state";
 import {
   attachmentEnergy,
   providedEnergy,
@@ -333,10 +334,33 @@ export default function Home() {
     state.status === "playing" &&
     state.players[state.current]?.id === pid &&
     !state.pending;
-  const selectedCard = selection ? catalog[selection.card] : undefined;
   const selectedPiece = selection?.uid
     ? state.players.flatMap(allPieces).find((p) => p.uid === selection.uid)
     : undefined;
+  const selectedCard = selectedPiece
+    ? classic.pokemonCard(state, selectedPiece, catalog)
+    : selection
+      ? catalog[selection.card]
+      : undefined;
+  const selectedPowers = selectedPiece
+    ? availablePowers(state, selectedPiece, catalog)
+    : [];
+  const selectedAttacks = selectedPiece
+    ? classic.attackOptions(state, selectedPiece, catalog)
+    : selectedCard?.attacks.map((attack, index) => ({
+        attack,
+        index,
+        card: selectedCard,
+      })) || [];
+  const babyTarget =
+    selectedCard && me
+      ? allPieces(me).some((p) =>
+          classic.evolvesInto(catalog[p.card], selectedCard),
+        )
+      : false;
+  const visibleReveals = (state.reveals || []).filter(
+    (r) => !r.player || r.player === pid,
+  );
   const canAct =
     (myTurn || state.status === "setup" || state.status === "waiting") &&
     state.status !== "finished" &&
@@ -616,11 +640,11 @@ export default function Home() {
     let dest = target || me?.active?.uid;
     const c = selectedCard;
     if (c.name === "Switch") dest = target || me?.bench[0]?.uid;
-    if (c.evolvesFrom)
+    if (c.evolvesFrom || babyTarget)
       dest =
         target ||
-        (me ? allPieces(me) : []).find(
-          (p) => catalog[p.card].name === c.evolvesFrom,
+        (me ? allPieces(me) : []).find((p) =>
+          classic.evolvesInto(catalog[p.card], c),
         )?.uid;
     if (send("play", { uid: selection.uid, target: dest })) {
       if (c.supertype === "Energy" || c.supertype === "Trainer") {
@@ -763,7 +787,12 @@ export default function Home() {
     zone: "active" | "bench",
     i = 0,
   ) => {
-    const c = p ? catalog[p.card] : undefined;
+    const c = p
+      ? {
+          ...classic.pokemonCard(state, p, catalog),
+          hp: classic.maximumHP(state, p, catalog),
+        }
+      : undefined;
     const own = owner?.id === pid;
     const selected = selection?.uid === p?.uid && !!p;
     return (
@@ -789,7 +818,13 @@ export default function Home() {
                 inspect({ card: p.card, uid: p.uid, owner: owner?.id, zone })
               }
             >
-              <CardImage card={c} small={zone === "bench"} />
+              <>
+                {p.faceDown ? (
+                  <CardBack />
+                ) : (
+                  <CardImage card={c} small={zone === "bench"} />
+                )}
+              </>
               {p.damage > 0 && (
                 <span className="damage-counter">{p.damage}</span>
               )}
@@ -800,13 +835,13 @@ export default function Home() {
               )}
             </button>
             <div className="attached-energy">
-              {providedEnergy(p, catalog)
+              {providedEnergy(p, catalog, state)
                 .slice(0, 6)
                 .map((type, j) => (
                   <Energy key={j} type={type} size={16} />
                 ))}
-              {providedEnergy(p, catalog).length > 6 && (
-                <span>+{providedEnergy(p, catalog).length - 6}</span>
+              {providedEnergy(p, catalog, state).length > 6 && (
+                <span>+{providedEnergy(p, catalog, state).length - 6}</span>
               )}
             </div>
             {zone === "active" && (
@@ -866,7 +901,22 @@ export default function Home() {
             key={i}
             className={`prize-mini ${i < (p?.prizes.length ?? 6) ? "" : "taken"}`}
           >
-            {i < (p?.prizes.length ?? 6) ? <CardBack /> : <Check size={13} />}
+            {i < (p?.prizes.length ?? 6) ? (
+              p?.publicPrizes?.includes(p.prizes[i].uid) ? (
+                <button
+                  onClick={() =>
+                    inspect({ card: p.prizes[i].card, zone: "catalog" })
+                  }
+                  aria-label="Inspect revealed Prize"
+                >
+                  <CardImage card={catalog[p.prizes[i].card]} small />
+                </button>
+              ) : (
+                <CardBack />
+              )
+            ) : (
+              <Check size={13} />
+            )}
           </div>
         ))}
       </div>
@@ -968,7 +1018,11 @@ export default function Home() {
                 </button>
               </div>
               <div className="detail-image">
-                <CardImage card={selectedCard} />
+                {selectedPiece?.faceDown ? (
+                  <CardBack />
+                ) : (
+                  <CardImage card={selectedCard} />
+                )}
                 <span className="detail-image-glow" />
               </div>
               <div className="detail-title">
@@ -990,8 +1044,15 @@ export default function Home() {
                   <span>
                     Remaining HP
                     <strong>
-                      {Math.max(0, selectedCard.hp - selectedPiece.damage)}
-                      <small> / {selectedCard.hp}</small>
+                      {Math.max(
+                        0,
+                        classic.maximumHP(state, selectedPiece, catalog) -
+                          selectedPiece.damage,
+                      )}
+                      <small>
+                        {" "}
+                        / {classic.maximumHP(state, selectedPiece, catalog)}
+                      </small>
                     </strong>
                   </span>
                   <span>
@@ -1023,39 +1084,68 @@ export default function Home() {
                     ))}
                 </div>
               )}
-              {selectedCard.abilities.map((a, i) => (
+              {(selectedPiece
+                ? classic
+                    .abilityCards(state, selectedPiece, catalog)
+                    .flatMap((c) => c.abilities)
+                : selectedCard.abilities
+              ).map((a, i) => (
                 <div className="ability" key={i}>
                   <small>{a.type}</small>
                   <strong>{a.name}</strong>
                   <p>{a.text}</p>
                   {selectedPiece &&
                     selection?.owner === pid &&
-                    BASE_POWERS[selectedCard.id]?.use && (
+                    selectedPowers.find((p) => p.name === a.name)?.use && (
                       <button
                         className="button primary full-width"
-                        disabled={!myTurn || !powerAvailable(selectedPiece)}
+                        disabled={
+                          !myTurn ||
+                          !classic.powerOn(
+                            state,
+                            selectedPiece,
+                            catalog,
+                            a.name,
+                          )
+                        }
                         onClick={() => {
-                          if (send("power", { uid: selectedPiece.uid }))
+                          if (
+                            send("power", {
+                              uid: selectedPiece.uid,
+                              index: selectedPowers
+                                .filter((p) => p.use)
+                                .findIndex((p) => p.name === a.name),
+                            })
+                          )
                             setInspectorOpen(false);
                         }}
                       >
                         <Sparkles size={15} /> Use {a.name}
                       </button>
                     )}
-                  {BASE_POWERS[selectedCard.id]?.passive && (
+                  {(selectedPiece
+                    ? selectedPowers.find((p) => p.name === a.name)?.passive
+                    : POWERS[selectedCard.id]?.passive) && (
                     <small>
-                      Triggers automatically when this Pokémon is damaged by an
-                      opponent’s attack.
+                      This Power applies automatically while its conditions are
+                      met.
                     </small>
                   )}
                 </div>
               ))}
-              {selectedCard.attacks.map((a, i) => {
+              {selectedAttacks.map(({ attack: a, card: attackCard }, i) => {
                 const attacking =
                   selection?.zone === "active" && selection.owner === pid;
                 const payable =
-                  !!selectedPiece && canPay(selectedPiece, a, catalog);
+                  !!selectedPiece && canPay(selectedPiece, a, catalog, state);
                 const disabledByEffect =
+                  (selectedPiece &&
+                    (classic.mark(state, selectedPiece, "noAttack") ||
+                      classic.mark(state, selectedPiece, "attackDisabled")
+                        ?.name === a.name ||
+                      (opponent?.active &&
+                        classic.mark(state, selectedPiece, "cannotAttackSource")
+                          ?.source === opponent.active.uid))) ||
                   selectedPiece?.usedAttacks?.includes(a.name) ||
                   (selectedPiece?.effects?.amnesia?.name === a.name &&
                     selectedPiece.effects.amnesia.until >= state.turn);
@@ -1073,7 +1163,7 @@ export default function Home() {
                     {a.text && <p>{a.text}</p>}
                     {attacking && (
                       <>
-                        {!automaticAttack(selectedCard, a) && (
+                        {!automaticAttack(attackCard, a) && (
                           <label className="manual-damage">
                             Damage before weakness
                             <input
@@ -1117,7 +1207,7 @@ export default function Home() {
                                 : `Use ${a.name}`}
                           <ArrowUpRight size={14} />
                         </button>
-                        {!automaticAttack(selectedCard, a) && (
+                        {!automaticAttack(attackCard, a) && (
                           <small className="manual-note">
                             Resolve printed effects with table tools before
                             attacking.
@@ -1128,6 +1218,29 @@ export default function Home() {
                   </div>
                 );
               })}
+              {selectedPiece?.faceDown && selection?.owner === pid && (
+                <button
+                  className="button full-width"
+                  disabled={!myTurn}
+                  onClick={() =>
+                    send("revealPiece", { uid: selectedPiece.uid })
+                  }
+                >
+                  Reveal Pokémon
+                </button>
+              )}
+              {state.stadium?.card === selectedCard.id &&
+                ["gym1-107", "gym2-114", "gym2-122"].includes(
+                  selectedCard.id,
+                ) && (
+                  <button
+                    className="button primary full-width"
+                    disabled={!myTurn}
+                    onClick={() => send("stadium")}
+                  >
+                    Use {selectedCard.name}
+                  </button>
+                )}
               {selectedCard.rules.length > 0 && (
                 <div className="card-rules">
                   {selectedCard.rules.map((r, i) => (
@@ -1135,7 +1248,8 @@ export default function Home() {
                   ))}
                 </div>
               )}
-              {selectedPiece?.card === "base1-70" &&
+              {selectedPiece &&
+                ["base1-70", "base3-62"].includes(selectedPiece.card) &&
                 selection?.owner === pid && (
                   <button
                     className="button full-width"
@@ -1144,13 +1258,14 @@ export default function Home() {
                       send("discardDoll", { uid: selectedPiece.uid })
                     }
                   >
-                    <Trash2 size={15} /> Discard Clefairy Doll
+                    <Trash2 size={15} /> Discard {selectedCard.name}
                   </button>
                 )}
               {selection?.zone === "hand" && (
                 <div className="play-action">
                   {(selectedCard.supertype === "Energy" ||
                     selectedCard.evolvesFrom ||
+                    babyTarget ||
                     selectedCard.name === "Switch" ||
                     selectedCard.subtypes.includes("Pokémon Tool")) &&
                     targets.length > 0 && (
@@ -1159,11 +1274,12 @@ export default function Home() {
                           target ||
                           (selectedCard.name === "Switch"
                             ? me?.bench[0]?.uid
-                            : selectedCard.evolvesFrom
-                              ? (me ? allPieces(me) : []).find(
-                                  (p) =>
-                                    catalog[p.card].name ===
-                                    selectedCard.evolvesFrom,
+                            : selectedCard.evolvesFrom || babyTarget
+                              ? (me ? allPieces(me) : []).find((p) =>
+                                  classic.evolvesInto(
+                                    catalog[p.card],
+                                    selectedCard,
+                                  ),
                                 )?.uid
                               : me?.active?.uid) ||
                           ""
@@ -1189,7 +1305,7 @@ export default function Home() {
                     )}{" "}
                     {selectedCard.supertype === "Energy"
                       ? "Attach Energy"
-                      : selectedCard.evolvesFrom
+                      : selectedCard.evolvesFrom || babyTarget
                         ? "Evolve Pokémon"
                         : selectedCard.supertype === "Trainer"
                           ? "Play Trainer"
@@ -1213,7 +1329,7 @@ export default function Home() {
                 >
                   <RotateCcw size={15} />
                   {me?.active
-                    ? `Retreat Active · ${catalog[me.active.card].retreat} Energy`
+                    ? `Retreat Active · ${classic.retreatCost(state, me, catalog)} Energy`
                     : "Promote to Active"}
                 </button>
               )}
@@ -1470,9 +1586,27 @@ export default function Home() {
                   >
                     {Array.from(
                       { length: Math.min(opponent?.hand.length || 0, 7) },
-                      (_, i) => (
-                        <CardBack key={i} />
-                      ),
+                      (_, i) =>
+                        opponent &&
+                        classic.clairvoyance(state, opponent, catalog) ? (
+                          <button
+                            key={i}
+                            aria-label={`Inspect ${catalog[opponent.hand[i].card].name}`}
+                            onClick={() =>
+                              inspect({
+                                card: opponent.hand[i].card,
+                                zone: "catalog",
+                              })
+                            }
+                          >
+                            <CardImage
+                              card={catalog[opponent.hand[i].card]}
+                              small
+                            />
+                          </button>
+                        ) : (
+                          <CardBack key={i} />
+                        ),
                     )}
                     <span>
                       <Hand size={13} />
@@ -2467,8 +2601,9 @@ export default function Home() {
                   <h3>Make your move count.</h3>
                   <p>
                     Select your Active Pokémon to attack. Energy costs,
-                    weakness, resistance, Base Set effects, Knock Outs, and
-                    Prizes are handled for you. Attacking ends your turn.
+                    weakness, resistance, effects through Neo Genesis, Knock
+                    Outs, and Prizes are handled for you. Attacking ends your
+                    turn.
                   </p>
                 </div>
               </div>
@@ -2478,12 +2613,13 @@ export default function Home() {
                   <h3>Every era has a seat.</h3>
                   <p>
                     All 20,444 English cards in the bundled catalog are
-                    available. All 102 Base Set cards have automated effects;
-                    choices appear when a card needs them. For effects from
-                    other sets, agree on the printed rules and use Table tools
-                    to draw, move cards, flip coins, adjust damage, and apply
-                    conditions. This is an assisted casual table, not a complete
-                    tournament rules engine.
+                    available. The 816 cards in the eight main expansions from
+                    Base Set through Neo Genesis have automated effects; choices
+                    appear when a card needs them. For effects from other sets,
+                    agree on the printed rules and use Table tools to draw, move
+                    cards, flip coins, adjust damage, and apply conditions. This
+                    is an assisted casual table, not a complete tournament rules
+                    engine.
                   </p>
                 </div>
               </div>
@@ -2806,7 +2942,11 @@ export default function Home() {
           </DialogDescription>
           {selectedCard && (
             <div className="catalog-detail-body">
-              <CardImage card={selectedCard} />
+              {selectedPiece?.faceDown ? (
+                <CardBack />
+              ) : (
+                <CardImage card={selectedCard} />
+              )}
               <div>
                 <span className="soft-badge">
                   {selectedCard.subtypes.join(" · ") || selectedCard.supertype}
@@ -2877,11 +3017,11 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
       <Toaster position="bottom-center" richColors closeButton />
-      {screen === "table" && !!state.reveals?.length && (
+      {screen === "table" && !!visibleReveals.length && (
         <RevealedCardsDialog
-          key={`${mode}-${room}-${state.reveals.at(-1)!.id}`}
-          reveals={state.reveals.filter(
-            (r) => r.id === state.reveals!.at(-1)!.id,
+          key={`${mode}-${room}-${visibleReveals.at(-1)!.id}`}
+          reveals={visibleReveals.filter(
+            (r) => r.id === visibleReveals.at(-1)!.id,
           )}
           catalog={catalog}
           renderCard={(card) => <CardImage card={card} small />}

@@ -20,15 +20,14 @@ import {
   flip,
   condition,
   checkKnockouts,
-  nextTurn,
   clearAttackEffects,
   discardEnergy,
 } from "./game-core";
 export { initialState, isBasic, allPieces, energyType } from "./game-core";
 import { automaticAttack, canPay } from "./effects/base-set";
-import { powerAvailable } from "./effects/base-set/powers";
 import { resolveEffect } from "./effect-engine";
-import { trainerHandler } from "./effects/base-set/trainers";
+import { trainerFor as trainerHandler } from "./effects/classic/trainers";
+import * as classic from "./effects/classic/state";
 import { attachmentEnergy } from "./effects/base-set/energy";
 export { automaticAttack, canPay } from "./effects/base-set";
 const copies = (id: string, n: number) => Array<string>(n).fill(id);
@@ -280,6 +279,14 @@ export function applyPost(
     if (hi < 0) return fail("That card is no longer in your hand.");
     const h = p.hand[hi];
     const c = catalog[h.card];
+    if (!setup && c.supertype !== "Trainer")
+      return resolve({
+        action: "play",
+        player: p.id,
+        uid: h.uid,
+        target: data.target,
+        manual: data.manual,
+      });
     if (c.supertype === "Pokémon") {
       if (isBasic(c)) {
         if (p.active && p.bench.length >= 5)
@@ -317,6 +324,8 @@ export function applyPost(
       effect(s, "energy", "Energy attached");
     } else {
       if (setup) return fail("Play Trainer cards once the match starts.");
+      if (classic.trainerBlocked(s, p, catalog))
+        return fail("Trainer cards cannot be played right now.");
       if (c.subtypes.includes("Supporter")) {
         if (p.supportPlayed) return fail("One Supporter per turn.");
         if (s.turn === 1)
@@ -358,7 +367,16 @@ export function applyPost(
     return { state: s };
   }
   if (setup) return fail("Place your Basic Pokémon and ready up first.");
-  if (["attack", "retreat", "power", "discardDoll"].includes(post.action)) {
+  if (
+    [
+      "attack",
+      "retreat",
+      "power",
+      "discardDoll",
+      "stadium",
+      "revealPiece",
+    ].includes(post.action)
+  ) {
     return resolve({
       action: post.action as EffectIntent["action"],
       player: p.id,
@@ -368,8 +386,7 @@ export function applyPost(
     });
   }
   if (post.action === "end") {
-    nextTurn(s, catalog);
-    return { state: s };
+    return resolve({ action: "end", player: p.id });
   }
   if (post.action === "coin") {
     flip(s);
@@ -587,19 +604,24 @@ export function botAction(
   if (s.pending) {
     const { choice, id } = s.pending;
     if (choice.player !== playerId) return null;
+    if (choice.input)
+      return {
+        action: "choose",
+        data: { resolution: id, choice: choice.key, values: ["1'0"] },
+      };
     let options = choice.options;
     if (choice.key === "heal-amount") options = [...options].reverse();
     if (choice.key === "retreat-energy") {
-      const cost = catalog[p.active!.card].retreat;
+      const cost = classic.retreatCost(s, p, catalog);
       const chosen: string[] = [];
       let paid = 0;
       for (const o of [...options].sort(
         (a, b) =>
-          attachmentEnergy(p.active!, Number(b.value), catalog).length -
-          attachmentEnergy(p.active!, Number(a.value), catalog).length,
+          attachmentEnergy(p.active!, Number(b.value), catalog, s).length -
+          attachmentEnergy(p.active!, Number(a.value), catalog, s).length,
       )) {
         chosen.push(o.value);
-        paid += attachmentEnergy(p.active!, Number(o.value), catalog).length;
+        paid += attachmentEnergy(p.active!, Number(o.value), catalog, s).length;
         if (paid >= cost) break;
       }
       return {
@@ -625,7 +647,9 @@ export function botAction(
     s.players.some((q) => !q.active)
   )
     return null;
-  if (p.bench.length < 5) {
+  if (p.active.faceDown)
+    return { action: "revealPiece", data: { uid: p.active.uid } };
+  if (p.bench.length < classic.narrowGym(s)) {
     const basic = p.hand.find((h) => isBasic(catalog[h.card]));
     if (basic) return { action: "play", data: { uid: basic.uid } };
   }
@@ -640,7 +664,7 @@ export function botAction(
       ) &&
       p.turns >= 2,
   );
-  if (evo)
+  if (evo && !classic.evolutionBlocked(s, catalog))
     return {
       action: "play",
       data: {
@@ -659,34 +683,41 @@ export function botAction(
       const target =
         [p.active, ...p.bench].find(
           (c) =>
+            !classic.mark(s, c, "noEnergy") &&
             c.energy.length <
-            Math.max(...catalog[c.card].attacks.map((a) => a.cost.length), 1),
+              Math.max(...catalog[c.card].attacks.map((a) => a.cost.length), 1),
         ) || p.active;
-      return { action: "play", data: { uid: energy.uid, target: target.uid } };
+      if (!classic.mark(s, target, "noEnergy"))
+        return {
+          action: "play",
+          data: { uid: energy.uid, target: target.uid },
+        };
     }
   }
   const bill = p.hand.find((h) => catalog[h.card].name === "Bill");
-  if (bill) return { action: "play", data: { uid: bill.uid } };
+  if (bill && !classic.trainerBlocked(s, p, catalog))
+    return { action: "play", data: { uid: bill.uid } };
   if (
     p.active.card === "base1-4" &&
     p.active.energy.length &&
-    powerAvailable(p.active) &&
+    classic.powerOn(s, p.active, catalog) &&
     (p.active.effects?.energyBurnTurn !== s.turn ||
       p.active.burnedEnergy?.length !== p.active.energy.length)
   )
     return { action: "power", data: { uid: p.active.uid } };
-  const attacks = catalog[p.active.card].attacks
-    .map((a, i) => ({ a, i }))
+  const attacks = classic
+    .attackOptions(s, p.active, catalog)
+    .map(({ attack: a, card }, i) => ({ a, i, card }))
     .filter(
-      ({ a }) =>
-        canPay(p.active!, a, catalog) &&
-        automaticAttack(catalog[p.active!.card], a) &&
+      ({ a, i, card }) =>
+        canPay(p.active!, a, catalog, s) &&
+        automaticAttack(card, a) &&
         !resolveEffect(
           s,
           {
             action: "attack",
             player: p.id,
-            index: catalog[p.active!.card].attacks.indexOf(a),
+            index: i,
           },
           catalog,
         ).error,

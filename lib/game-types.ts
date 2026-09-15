@@ -35,6 +35,11 @@ export type AttackResult = {
   conditions: string[];
   poisonDamage?: number;
   discardedEnergy?: number;
+  movedBasicEnergy?: number;
+  marks?: Record<string, RuleMark>;
+  charred?: boolean;
+  counterDamage?: number;
+  healed?: number;
   weakness?: string;
   sandAttack?: boolean;
   amnesia?: string;
@@ -69,6 +74,22 @@ export type Piece = {
   energyTypes?: Record<number, string>;
   burnedEnergy?: number[];
   trainerAttachments?: { uid: string; card: string; expires: number }[];
+  marks?: Record<string, RuleMark>;
+  powerUsed?: Record<string, number>;
+  generation?: number;
+  charred?: boolean;
+  shiftedType?: string;
+  shape?: HandCard;
+  shapeAttachments?: HandCard[];
+  faceDown?: boolean;
+  lastUsed?: { name: string; turn: number };
+};
+export type RuleMark = {
+  until: number;
+  value?: number;
+  name?: string;
+  source?: string;
+  generation?: number;
 };
 export type ChoiceOption = { value: string; label: string; card?: string };
 export type EffectChoice = {
@@ -79,14 +100,26 @@ export type EffectChoice = {
   min: number;
   max: number;
   ordered?: boolean;
+  input?: boolean;
+  referenceCard?: string;
 };
 export type EffectIntent = {
-  action: "attack" | "trainer" | "power" | "retreat" | "discardDoll";
+  action:
+    | "attack"
+    | "trainer"
+    | "power"
+    | "retreat"
+    | "discardDoll"
+    | "play"
+    | "end"
+    | "stadium"
+    | "revealPiece";
   player: string;
   uid?: string;
   index?: number;
   target?: string;
   damage?: number;
+  manual?: boolean;
 };
 export type PendingEffect = {
   id: string;
@@ -111,6 +144,9 @@ export type Player = {
   retreated: boolean;
   turns: number;
   mulligans: number;
+  rules?: Record<string, number>;
+  publicPrizes?: string[];
+  aside?: { cards: HandCard[]; until: number }[];
 };
 export type GameState = {
   players: Player[];
@@ -126,8 +162,10 @@ export type GameState = {
   seen: string[];
   effect: { id: number; kind: string; text: string } | null;
   pending?: PendingEffect;
+  powerLockUntil?: number;
+  resolving?: { player: string; kind: string };
   /** Public card reveals, separate from the currently resolving choice. */
-  reveals?: { id: number; title: string; cards: string[] }[];
+  reveals?: { id: number; title: string; cards: string[]; player?: string }[];
 };
 export type Post = { pid: string; id: string; action: string; payload: string };
 export type Deck = {

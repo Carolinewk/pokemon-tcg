@@ -15,7 +15,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-reporter=dot tests/game.mjs tests/base-set.mjs",
+    "test": "node --test --test-reporter=dot tests/game.mjs tests/base-set.mjs tests/classic.mjs",
     "test:multiplayer": "node tests/transport.mjs",
     "lint:game": "eslint app lib db",
     "cards:sync": "node scripts/sync-cards.mjs"

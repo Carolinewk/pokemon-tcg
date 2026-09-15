@@ -1,4 +1,5 @@
 import type { AttackContext, AttackHandler } from "../context";
+import { mirrorClassicResults } from "../classic/operations";
 import { ENERGY_TYPES } from "./energy";
 
 // Indexed by printed card ID and attack position: same-named attacks can have different effects.
@@ -11,7 +12,7 @@ export function alakazamConfuseRay(c: AttackContext) {
 
 /** Blastoise — Hydro Pump (base1-2, attack 1). */
 export function blastoiseHydroPump(c: AttackContext) {
-  if (c.begin()) c.hit(40 + c.waterBonus(3));
+  if (c.begin()) c.hit(40 + c.waterBonus());
 }
 
 /** Chansey — Scrunch (base1-3, attack 1). */
@@ -153,7 +154,7 @@ export function ninetalesFireBlast(c: AttackContext) {
 
 /** Poliwrath — Water Gun (base1-13, attack 1). */
 export function poliwrathWaterGun(c: AttackContext) {
-  if (c.begin()) c.hit(30 + c.waterBonus(2));
+  if (c.begin()) c.hit(30 + c.waterBonus());
 }
 
 /** Poliwrath — Whirlpool (base1-13, attack 2). */
@@ -290,6 +291,7 @@ export function pidgeottoMirrorMove(c: AttackContext) {
       c.record().amnesia = name;
     }
   }
+  mirrorClassicResults(c);
 }
 
 /** Arcanine — Flamethrower (base1-23, attack 1). */
@@ -699,7 +701,7 @@ export function pikachuThunderJolt(c: AttackContext) {
 
 /** Poliwag — Water Gun (base1-59, attack 1). */
 export function poliwagWaterGun(c: AttackContext) {
-  if (c.begin()) c.hit(10 + c.waterBonus(1));
+  if (c.begin()) c.hit(10 + c.waterBonus());
 }
 
 /** Ponyta — Smash Kick (base1-60, attack 1). */

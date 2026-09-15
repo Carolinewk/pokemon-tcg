@@ -8,6 +8,11 @@ import type {
 } from "./game-types";
 export { energyType } from "./effects/base-set/energy";
 import { clefairyDollRules } from "./effects/base-set/modifiers";
+import * as R from "./effects/classic/state";
+import * as L from "./effects/classic/lifecycle";
+import { ENERGY_NAMES } from "./effects/classic/energy-cards";
+import { attachmentEnergy } from "./effects/base-set/energy";
+import { EffectContext, type Answers } from "./effects/context";
 export const hash = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -50,8 +55,7 @@ export function log(s: GameState, text: string, kind = "play") {
 export function effect(s: GameState, kind: string, text: string) {
   s.effect = { id: s.seq, kind, text };
 }
-export const isBasic = (c: Card | undefined) =>
-  c?.supertype === "Pokémon" && c.subtypes.includes("Basic");
+export const isBasic = (c: Card | undefined) => R.startingPokemon(c);
 export function piece(h: HandCard, turn: number): Piece {
   return {
     ...h,
@@ -104,6 +108,9 @@ export function condition(c: Piece, name: string) {
 /** Benching and evolution clear attack effects, but not attached cards or Energy Burn. */
 export function clearAttackEffects(c: Piece) {
   c.conditions = [];
+  c.generation = (c.generation || 0) + 1;
+  c.marks = {};
+  delete c.lastUsed;
   c.shield = 0;
   c.effects =
     c.effects?.energyBurnTurn === undefined
@@ -116,6 +123,13 @@ export function switchActive(p: Player, uid: string) {
   if (i < 0 || !p.active) throw new Error("Choose a Benched Pokémon.");
   const old = p.active;
   clearAttackEffects(old);
+  const ninja = (old.trainerAttachments || []).filter(
+    (t) => t.card === "gym2-115",
+  );
+  p.discard.push(...ninja.map(({ uid, card }) => ({ uid, card })));
+  old.trainerAttachments = (old.trainerAttachments || []).filter(
+    (t) => t.card !== "gym2-115",
+  );
   p.active = p.bench[i];
   p.bench[i] = old;
 }
@@ -138,15 +152,39 @@ export function discardEnergy(
   p: Player,
   c: Piece,
   indices: number[],
+  cause: { player: string; kind: string } = s.resolving || {
+    player: s.players[s.current]?.id || p.id,
+    kind: "effect",
+  },
 ) {
+  const removed: string[] = [];
+  if (
+    cause.player !== p.id &&
+    ["attack", "trainer"].includes(cause.kind) &&
+    (c.trainerAttachments || []).some((t) => t.card === "gym2-101")
+  )
+    return removed;
   for (const i of [...indices].sort((a, b) => b - a)) {
+    const units = attachmentEnergy(c, i, {
+      [c.energy[i]]: {
+        name: ENERGY_NAMES[c.energy[i]] || "Colorless Energy",
+      } as Card,
+    });
     const { card } = takeEnergy(c, i);
-    if (card)
-      p.discard.push({
+    if (card) {
+      removed.push(card);
+      const eco =
+        s.stadium?.card === "neo1-84" &&
+        cause.player !== p.id &&
+        cause.kind !== "knockout" &&
+        units.some((t) => t !== "Colorless");
+      (card === "neo1-105" || eco ? p.hand : p.discard).push({
         uid: `${p.id}-energy-${s.seq}-${p.discard.length}`,
         card,
       });
+    }
   }
+  return removed;
 }
 export function discardAttachments(s: GameState, p: Player, c: Piece) {
   discardEnergy(
@@ -154,11 +192,17 @@ export function discardAttachments(s: GameState, p: Player, c: Piece) {
     p,
     c,
     c.energy.map((_, i) => i),
+    { player: p.id, kind: "knockout" },
   );
   p.discard.push(
     ...c.tools.map((card, i) => ({ uid: `${c.uid}-tool-${s.seq}-${i}`, card })),
     ...(c.trainerAttachments || []).map(({ uid, card }) => ({ uid, card })),
   );
+  if (c.shape || c.shapeAttachments?.length) {
+    p.discard.push(...(c.shapeAttachments || (c.shape ? [c.shape] : [])));
+    delete c.shape;
+    delete c.shapeAttachments;
+  }
   c.tools = [];
   c.trainerAttachments = [];
 }
@@ -179,14 +223,19 @@ export function checkKnockouts(s: GameState, catalog: Catalog) {
   for (let i = 0; i < s.players.length; i++) {
     const p = s.players[i];
     for (const c of allPieces(p)) {
-      if (c.damage < (catalog[c.card]?.hp || 9999)) continue;
+      if (c.damage < (R.maximumHP(s, c, catalog) || 9999)) continue;
       const card = catalog[c.card];
+      const rebirth = R.mark(s, c, "rebirth");
       p.discard.push(
         { uid: c.uid, card: c.card },
         ...c.stack.map((id, k) => ({ uid: c.uid + "s" + k, card: id })),
       );
       discardAttachments(s, p, c);
       removePiece(p, c);
+      if (rebirth) {
+        const i = p.discard.findIndex((h) => h.uid === c.uid);
+        if (i >= 0) p.hand.push(...p.discard.splice(i, 1));
+      }
       const prizes = card.subtypes.some((t) => ["VMAX", "TAG TEAM"].includes(t))
         ? 3
         : card.subtypes.some((t) =>
@@ -229,7 +278,13 @@ export function checkKnockouts(s: GameState, catalog: Catalog) {
     );
   }
 }
-export function nextTurn(s: GameState, catalog: Catalog) {
+export function nextTurn(
+  s: GameState,
+  catalog: Catalog,
+  answers: Answers = {},
+) {
+  const ctx = new EffectContext(s, catalog, s.players[s.current], answers);
+  L.endOfTurnEffects(ctx);
   const ending = s.players[s.current];
   for (const p of s.players) {
     const a = p.active;
@@ -252,7 +307,16 @@ export function nextTurn(s: GameState, catalog: Catalog) {
       const expired = (c.trainerAttachments || []).filter(
         (t) => t.expires <= s.turn,
       );
-      p.discard.push(...expired.map(({ uid, card }) => ({ uid, card })));
+      p.discard.push(
+        ...expired
+          .filter((t) => t.card !== "gym1-99")
+          .map(({ uid, card }) => ({ uid, card })),
+      );
+      p.hand.push(
+        ...expired
+          .filter((t) => t.card === "gym1-99")
+          .map(({ uid, card }) => ({ uid, card })),
+      );
       c.trainerAttachments = (c.trainerAttachments || []).filter(
         (t) => t.expires > s.turn,
       );
@@ -264,6 +328,8 @@ export function nextTurn(s: GameState, catalog: Catalog) {
         c.burnedEnergy = [];
       }
     }
+  L.ticklingMachineReturn(s);
+  L.beforeKnockouts(ctx);
   checkKnockouts(s, catalog);
   if (s.status === "finished") return;
   s.current = 1 - s.current;
@@ -274,6 +340,10 @@ export function nextTurn(s: GameState, catalog: Catalog) {
   p.retreated = false;
   p.turns++;
   for (const c of allPieces(p)) c.shield = 0;
+  L.startOfTurnEffects(ctx);
+  L.normalizePowers(ctx);
+  checkKnockouts(s, catalog);
+  if ((s.status as string) === "finished") return;
   draw(s, p, 1, true);
   log(s, `${p.name}'s turn. Drew a card.`, "turn");
 }

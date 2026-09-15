@@ -155,3 +155,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.effect-reference-card {
+  width: min(21rem, 100%);
+  margin: 1rem auto;
+}

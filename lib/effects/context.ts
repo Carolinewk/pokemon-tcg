@@ -12,18 +12,27 @@ import type {
 } from "../game-types";
 import {
   allPieces,
-  condition,
   discardEnergy,
   flip,
   log,
   switchActive,
+  random,
 } from "../game-core";
-import { attachmentEnergy, providedEnergy } from "./base-set/energy";
+import {
+  attachmentEnergy,
+  cardProvidesEnergy,
+  surplusEnergy,
+} from "./base-set/energy";
 import {
   clefairyDollRules,
   defenderReduction,
   plusPowerBonus,
 } from "./base-set/modifiers";
+
+import * as R from "./classic/state";
+import { revealFaceDown } from "./classic/lifecycle";
+import * as D from "./classic/damage";
+import { attachEnergy as attach } from "./classic/energy";
 
 export class EffectError extends Error {}
 export class NeedsChoice extends Error {
@@ -35,6 +44,20 @@ export type Answers = Record<string, string[]>;
 
 /** Effects mutate a disposable transaction. The engine commits only after every choice is valid. */
 export class EffectContext {
+  endsTurn = false;
+  choicePrefix = "";
+  random() {
+    return random(this.state);
+  }
+  applyCondition(p: Piece, name: string, poison = 10) {
+    D.applyCondition(this, p, name, poison);
+  }
+  powerDamage(source: Piece, target: Piece, amount: number, wr = false) {
+    return D.powerDamage(this, source, target, amount, wr);
+  }
+  attachEnergy(p: Piece, h: HandCard, fromHand = true) {
+    attach(this, p, h, fromHand);
+  }
   constructor(
     public state: GameState,
     public catalog: Catalog,
@@ -47,6 +70,35 @@ export class EffectContext {
   require(ok: unknown, message: string): asserts ok {
     if (!ok) throw new EffectError(message);
   }
+  chooseText(
+    key: string,
+    title: string,
+    player = this.player.id,
+    referenceCard?: string,
+  ): string {
+    key = this.choicePrefix + key;
+    const a = this.answers[key];
+    if (a !== undefined) {
+      this.require(
+        a.length === 1 &&
+          typeof a[0] === "string" &&
+          a[0].trim().length > 0 &&
+          a[0].length <= 80,
+        "Enter a short answer.",
+      );
+      return a[0].trim();
+    }
+    throw new NeedsChoice({
+      key,
+      title,
+      player,
+      options: [],
+      min: 1,
+      max: 1,
+      input: true,
+      referenceCard,
+    });
+  }
   choose(
     key: string,
     title: string,
@@ -56,6 +108,7 @@ export class EffectContext {
     player = this.player.id,
     ordered = false,
   ): string[] {
+    key = this.choicePrefix + key;
     this.require(options.length >= min, `No valid choice: ${title}`);
     max = Math.min(max, options.length);
     const answer = this.answers[key];
@@ -126,8 +179,8 @@ export class EffectContext {
     type?: string,
   ) {
     const options = p.energy.flatMap((card, i) => {
-      const units = attachmentEnergy(p, i, this.catalog);
-      return !type || units.includes(type)
+      const units = attachmentEnergy(p, i, this.catalog, this.state);
+      return !type || cardProvidesEnergy(p, i, type, this.catalog, this.state)
         ? [
             {
               value: String(i),
@@ -178,7 +231,19 @@ export type DamageReaction = (
 
 export class AttackContext extends EffectContext {
   readonly attacker: Piece;
-  readonly defender: Piece;
+  defender: Piece;
+  ignoreResistance = false;
+  ignoreDefenses = false;
+  shadowRolls = new Map<string, boolean>();
+  transparencyRolls = new Map<string, boolean>();
+  fled = new Set<string>();
+  startingConditions = new Map<string, string[]>();
+  coinResults: boolean[] = [];
+  rerollSkip = 0;
+  private costStep = 0;
+  selfStatus(name: string) {
+    this.applyCondition(this.attacker, name);
+  }
   readonly previousAttack?: AttackResult;
   readonly awakePowers: Set<string>;
   readonly damageDone = new Map<string, number>();
@@ -186,6 +251,7 @@ export class AttackContext extends EffectContext {
   copyDepth = 0;
   private begun?: boolean;
   damage = 0;
+  vermilionBonus = 0;
   constructor(
     state: GameState,
     catalog: Catalog,
@@ -203,15 +269,13 @@ export class AttackContext extends EffectContext {
     this.attacker = player.active!;
     this.defender = this.opponent.active!;
     this.previousAttack = this.attacker.lastAttack;
+    this.startingConditions = new Map(
+      state.players.flatMap(allPieces).map((p) => [p.uid, [...p.conditions]]),
+    );
     this.awakePowers = new Set(
       state.players
         .flatMap(allPieces)
-        .filter(
-          (p) =>
-            !p.conditions.some((c) =>
-              ["Asleep", "Confused", "Paralyzed"].includes(c),
-            ),
-        )
+        .filter((p) => R.powerOn(state, p, catalog))
         .map((p) => p.uid),
     );
   }
@@ -227,7 +291,7 @@ export class AttackContext extends EffectContext {
       return (this.begun = false);
     }
     if (this.attacker.conditions.includes("Confused") && !flip(this.state)) {
-      this.attacker.damage += 30;
+      this.attacker.damage += D.darkPrimeapeFrenzy(this, 30);
       log(
         this.state,
         `${this.catalog[this.attacker.card].name} hurt itself in confusion.`,
@@ -243,12 +307,18 @@ export class AttackContext extends EffectContext {
     return true;
   }
   coin() {
-    return flip(this.state);
+    while (this.rerollSkip > 0) {
+      flip(this.state);
+      this.rerollSkip--;
+    }
+    const result = flip(this.state);
+    this.coinResults.push(result);
+    return result;
   }
   payEnergy(count: number, type?: string) {
     if (this.copying) return;
     const indices = this.chooseEnergy(
-      "attack-cost",
+      `attack-cost${this.costStep++ ? "-" + this.costStep : ""}`,
       `Discard ${count} ${type || ""} Energy card${count === 1 ? "" : "s"}`,
       this.attacker,
       count,
@@ -258,7 +328,12 @@ export class AttackContext extends EffectContext {
     discardEnergy(this.state, this.player, this.attacker, indices);
   }
   effectsBlocked(target = this.defender) {
-    return (target.effects?.preventAllUntil ?? -1) >= this.state.turn;
+    if (this.ignoreDefenses) return false;
+    return (
+      this.fled.has(target.uid) ||
+      (target.effects?.preventAllUntil ?? -1) >= this.state.turn ||
+      D.haunterTransparency(this, target)
+    );
   }
   record(target = this.defender) {
     if (target.lastAttack?.turn !== this.state.turn)
@@ -266,38 +341,46 @@ export class AttackContext extends EffectContext {
     return target.lastAttack;
   }
   hit(base: number, target = this.defender, applyWeakness = true) {
+    if (target.faceDown && !revealFaceDown(this, target)) return 0;
     let amount = Math.max(0, base);
-    const attacking = this.catalog[this.attacker.card];
-    const defending = this.catalog[target.card];
     const opposing = allPieces(this.opponent).includes(target);
     const isDefender = target.uid === this.defender.uid;
-    if (amount > 0 && applyWeakness) {
-      const weak = target.effects?.weakness
-        ? {
-            type: target.effects.weakness,
-            value: defending.weaknesses[0]?.value || "×2",
-          }
-        : defending.weaknesses.find((w) => attacking.types.includes(w.type));
-      const resist = target.effects?.resistance
-        ? { type: target.effects.resistance, value: "-30" }
-        : defending.resistances.find((w) => attacking.types.includes(w.type));
-      if (weak && attacking.types.includes(weak.type))
-        amount = weak.value.includes("×")
-          ? amount * (Number(weak.value.replace("×", "")) || 2)
-          : amount + Number(weak.value);
-      if (resist && attacking.types.includes(resist.type))
-        amount = Math.max(0, amount + Number(resist.value));
+    amount = D.attackBase(this, target, amount);
+    if (amount > 0 && applyWeakness && !this.ignoreDefenses)
+      amount = D.weaknessResistance(
+        this,
+        this.attacker,
+        target,
+        amount,
+        this.ignoreResistance,
+      );
+    if (isDefender && amount > 0) {
+      amount +=
+        plusPowerBonus(this.attacker, this.state.turn, amount) +
+        D.darknessEnergyBonus(this.attacker);
+      if (
+        (this.player.rules?.mistyTurn ?? -1) === this.state.turn &&
+        R.pokemonCard(this.state, this.attacker, this.catalog).name.includes(
+          "Misty",
+        )
+      )
+        amount += this.player.rules?.mistyBonus || 20;
+      const screech = R.mark(this.state, target, "screech");
+      if (screech && !this.ignoreDefenses) amount += screech.value || 20;
+      if (this.vermilionBonus) amount += this.vermilionBonus;
     }
-    if (isDefender)
-      amount += plusPowerBonus(this.attacker, this.state.turn, amount);
-    amount = Math.max(0, amount - defenderReduction(target, this.state.turn));
-    if (
-      this.effectsBlocked(target) ||
-      (target.effects?.preventDamageUntil ?? -1) >= this.state.turn ||
-      target.shield >= this.state.turn ||
-      ((target.effects?.hardenUntil ?? -1) >= this.state.turn && amount <= 30)
-    )
-      amount = 0;
+    if (!this.ignoreDefenses) {
+      amount = Math.max(0, amount - defenderReduction(target, this.state.turn));
+      amount = D.attackDefenses(this, target, amount);
+      if (
+        this.effectsBlocked(target) ||
+        (target.effects?.preventDamageUntil ?? -1) >= this.state.turn ||
+        target.shield >= this.state.turn ||
+        ((target.effects?.hardenUntil ?? -1) >= this.state.turn && amount <= 30)
+      )
+        amount = 0;
+      amount = D.brockRhydonBenchGuard(this, target, amount);
+    }
     target.damage += amount;
     if (opposing) {
       this.record(target).damage += amount;
@@ -305,13 +388,16 @@ export class AttackContext extends EffectContext {
         target.uid,
         (this.damageDone.get(target.uid) || 0) + amount,
       );
-      this.reaction(this, target, amount);
     }
+    this.reaction(this, target, amount);
     if (isDefender) this.damage += amount;
     return amount;
   }
   recoil(amount: number) {
-    this.hit(amount, this.attacker);
+    this.hit(
+      R.mark(this.state, this.attacker, "doubleRecoil") ? amount * 2 : amount,
+      this.attacker,
+    );
   }
   status(name: string, poisonDamage = 10) {
     if (
@@ -319,7 +405,8 @@ export class AttackContext extends EffectContext {
       clefairyDollRules(this.defender.card).immuneToConditions
     )
       return;
-    condition(this.defender, name);
+    this.applyCondition(this.defender, name, poisonDamage);
+    if (!this.defender.conditions.includes(name)) return;
     const result = this.record();
     result.conditions.push(name);
     if (name === "Poisoned") {
@@ -354,7 +441,10 @@ export class AttackContext extends EffectContext {
     if (
       this.effectsBlocked() ||
       !this.opponent.bench.length ||
-      this.defender.damage >= this.catalog[this.defender.card].hp
+      R.switchingBlocked(this.state, this.opponent) ||
+      this.opponent.active?.uid !== this.defender.uid ||
+      this.defender.damage >=
+        R.maximumHP(this.state, this.defender, this.catalog)
     )
       return;
     const target = this.choosePiece(
@@ -369,25 +459,17 @@ export class AttackContext extends EffectContext {
       `${this.opponent.name} switched to ${this.catalog[target.card].name}.`,
     );
   }
-  waterBonus(cost: number) {
-    const water = providedEnergy(this.attacker, this.catalog).filter(
-      (t) => t === "Water",
-    ).length;
-    // Water used for a Colorless cost is only surplus when other Energy can cover that cost.
-    const units = providedEnergy(this.attacker, this.catalog).length;
-    const required = this.copying
-      ? this.catalog[this.attacker.card].attacks.find(
+  waterBonus() {
+    const paid = this.copying
+      ? R.pokemonCard(this.state, this.attacker, this.catalog).attacks.find(
           (a) => a.name === "Metronome",
-        )?.cost.length || 3
-      : this.attack.cost.length;
+        ) || this.attack
+      : this.attack;
     return (
       10 *
       Math.min(
         2,
-        Math.max(
-          0,
-          Math.min(water - (this.copying ? 0 : cost), units - required),
-        ),
+        surplusEnergy(this.attacker, paid, "Water", this.catalog, this.state),
       )
     );
   }

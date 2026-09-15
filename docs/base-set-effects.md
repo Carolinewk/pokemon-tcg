@@ -1,22 +1,22 @@
 # Base Set effect implementation
 
-The supported set is the 102-card English `base1` set in the bundled catalog. Its 69 Pokémon have 114 attacks, including 83 with effect text. The other cards comprise 26 Trainers and 7 Energy cards; six Pokémon also have Powers.
+This module covers the 102-card English `base1` set in the bundled catalog. Its 69 Pokémon have 114 attacks, including 83 with effect text. The other cards comprise 26 Trainers and 7 Energy cards; six Pokémon also have Powers.
 
 ## File boundaries
 
-| File | Responsibility |
-| --- | --- |
-| `lib/effects/base-set/attacks.ts` | One exported, named function for each of the 114 attacks; card-ID and attack-index registry |
-| `lib/effects/base-set/powers.ts` | Five activated Powers and Machamp's passive Strikes Back, each in its own function |
-| `lib/effects/base-set/trainers.ts` | One function per Trainer, with small helpers for moving cards and healing |
-| `lib/effects/base-set/energy.ts` | Seven Energy providers, Buzzap's chosen type, Energy Burn, and Energy-unit payment |
-| `lib/effects/base-set/modifiers.ts` | Separate continuous-effect functions for Clefairy Doll, PlusPower, and Defender |
-| `lib/effects/context.ts` | Choice validation and shared attack operations: damage, conditions, protection, costs, and switching |
-| `lib/effect-engine.ts` | Transaction boundaries, legality, dispatch, completion, and pending choices |
-| `lib/game-core.ts` | General state operations, shuffling, turns, attachment movement, and Knock Outs |
-| `lib/game-types.ts` | Serializable shared types; effect modules have no dependency on the UI |
-| `lib/game.ts` | Public post reducer, setup, ordinary play, tabletop tools, and practice opponent |
-| `components/effect-choice.tsx` | Card/target selection, ordered Pokédex choices, and visible effect labels |
+| File                                | Responsibility                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `lib/effects/base-set/attacks.ts`   | One exported, named function for each of the 114 attacks; card-ID and attack-index registry          |
+| `lib/effects/base-set/powers.ts`    | Five activated Powers and Machamp's passive Strikes Back, each in its own function                   |
+| `lib/effects/base-set/trainers.ts`  | One function per Trainer, with small helpers for moving cards and healing                            |
+| `lib/effects/base-set/energy.ts`    | Seven Energy providers, Buzzap's chosen type, Energy Burn, and Energy-unit payment                   |
+| `lib/effects/base-set/modifiers.ts` | Separate continuous-effect functions for Clefairy Doll, PlusPower, and Defender                      |
+| `lib/effects/context.ts`            | Choice validation and shared attack operations: damage, conditions, protection, costs, and switching |
+| `lib/effect-engine.ts`              | Transaction boundaries, legality, dispatch, completion, and pending choices                          |
+| `lib/game-core.ts`                  | General state operations, shuffling, turns, attachment movement, and Knock Outs                      |
+| `lib/game-types.ts`                 | Serializable shared types; effect modules have no dependency on the UI                               |
+| `lib/game.ts`                       | Public post reducer, setup, ordinary play, tabletop tools, and practice opponent                     |
+| `components/effect-choice.tsx`      | Card/target selection, ordered Pokédex choices, and visible effect labels                            |
 
 Attack dispatch uses the printed card ID and attack position, not an attack-name whitelist. For example, Kakuna's Poisonpowder flips a coin; Ivysaur's and Tangela's Poisonpowder do not. New effects should use the same explicit registration pattern, with a behavioral test for their distinct rules.
 
@@ -45,7 +45,7 @@ All state needed for choices, temporary effects, Buzzap attachments, Leek Slap u
 
 The effect specification is the bundled [Pokémon TCG Data Base Set card text](https://github.com/PokemonTCG/pokemon-tcg-data/blob/master/cards/en/base1.json). Historical details were cross-checked against the archived official Wizards of the Coast FAQs and chat rulings collected in the [Pokémon Rulings Compendium](https://compendium.pokegym.net/compendium.html), particularly Energy Burn, Energy Trans, Buzzap, Strikes Back, Metronome, Mirror Move, Devolution Spray, PlusPower, and the distinction between trading a card and paying a discard cost.
 
-The surrounding match rules remain the app's existing rules, as described in the README. This is not a conversion of setup, turn restrictions, Confusion, or tie handling to a particular historical tournament format. Automation of another set's Powers or special attacks is outside this implementation; mixed-set interactions that depend on them still require tabletop resolution. Hidden information continues to be concealed by the UI rather than by an authoritative server.
+The surrounding match rules remain the app's existing rules, as described in the README. This is not a conversion of setup, turn restrictions, Confusion, or tie handling to a particular historical tournament format. The later [classic expansion modules](classic-effects.md) extend automation through Neo Genesis. Effects outside those eight main expansions still require tabletop resolution. Hidden information continues to be concealed by the UI rather than by an authoritative server.
 
 ## Verification
 

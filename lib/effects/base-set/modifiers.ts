@@ -2,7 +2,7 @@ import type { Piece } from "../../game-types";
 
 /** The Doll's continuous rules apply only while it is a Pokémon in play. */
 export function clefairyDollRules(cardId: string) {
-  const doll = cardId === "base1-70";
+  const doll = cardId === "base1-70" || cardId === "base3-62";
   return {
     immuneToConditions: doll,
     canRetreat: !doll,
@@ -17,7 +17,7 @@ export function plusPowerBonus(attacker: Piece, turn: number, damage: number) {
   return (
     10 *
     (attacker.trainerAttachments || []).filter(
-      (t) => t.card === "base1-84" && t.expires >= turn,
+      (t) => ["base1-84", "base4-113"].includes(t.card) && t.expires >= turn,
     ).length
   );
 }
@@ -27,7 +27,7 @@ export function defenderReduction(target: Piece, turn: number) {
   return (
     20 *
     (target.trainerAttachments || []).filter(
-      (t) => t.card === "base1-80" && t.expires >= turn,
+      (t) => ["base1-80", "base4-109"].includes(t.card) && t.expires >= turn,
     ).length
   );
 }

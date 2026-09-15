@@ -29,10 +29,16 @@ const room = "test" + Date.now().toString(36);
 const clients = [];
 let nonce = 0;
 const effectDeck = [
-  ...["base1-57", "base1-46", "base1-45", "base1-71", "base1-95"].flatMap(
-    (id) => Array(4).fill(id),
-  ),
-  ...Array(40).fill("base1-98"),
+  ...[
+    "base1-57",
+    "base1-46",
+    "base1-45",
+    "base1-71",
+    "base1-95",
+    "neo1-100",
+    "base5-17",
+  ].flatMap((id) => Array(4).fill(id)),
+  ...Array(32).fill("base1-98"),
 ];
 const wait = async (predicate, label, limit = 18000) => {
   const start = Date.now();
@@ -69,7 +75,7 @@ try {
   console.log("PASS: both clients connected to the VibiNet room relay");
   post(a, "a", "join", {
     name: "Alice",
-    deckName: "Base Set effects test",
+    deckName: "Classic effects test",
     cards: effectDeck,
   });
   await wait(
@@ -80,7 +86,7 @@ try {
   );
   post(b, "b", "join", {
     name: "Bob",
-    deckName: "Base Set effects test",
+    deckName: "Classic effects test",
     cards: effectDeck,
   });
   await wait(
@@ -260,6 +266,70 @@ try {
   );
   console.log(
     "PASS: Whirlwind waits for the opponent, survives reconnect, and ends the turn after their selection",
+  );
+  const gustPlayer = after.players[after.current].id;
+  const gust = await getHandCard(gustPlayer, (c) => c.id === "neo1-100");
+  pending = (await synchronizedMove(gustPlayer, "play", { uid: gust.uid }))
+    .pending;
+  assert.equal(pending.choice.key, "gust-self");
+  assert.notEqual(pending.choice.player, gustPlayer);
+  const firstReplacement = pending.choice.options[0].value;
+  const secondReconnect = connectTable(
+    room,
+    catalog,
+    process.env.POKETABLE_TEST_ORIGIN || "http://localhost:5174",
+  );
+  clients.push(secondReconnect);
+  await wait(
+    () => secondReconnect.compute_render_state().pending?.id === pending.id,
+    "reconnect during Double Gust",
+  );
+  assert.deepEqual(
+    secondReconnect.compute_render_state(),
+    a.compute_render_state(),
+  );
+  pending = (
+    await synchronizedMove(pending.choice.player, "choose", {
+      resolution: pending.id,
+      choice: pending.choice.key,
+      values: [firstReplacement],
+    })
+  ).pending;
+  assert.equal(pending.choice.key, "gust-other");
+  assert.equal(pending.choice.player, gustPlayer);
+  const secondReplacement = pending.choice.options.at(-1).value;
+  const afterGust = await synchronizedMove(gustPlayer, "choose", {
+    resolution: pending.id,
+    choice: pending.choice.key,
+    values: [secondReplacement],
+  });
+  assert.equal(afterGust.pending, undefined);
+  assert.equal(afterGust.turn, 3);
+  assert.equal(
+    afterGust.players.find((p) => p.id === gustPlayer).active.uid,
+    firstReplacement,
+  );
+  assert.equal(
+    afterGust.players.find((p) => p.id !== gustPlayer).active.uid,
+    secondReplacement,
+  );
+  console.log(
+    "PASS: Double Gust switches choice ownership and replays both selections after reconnect",
+  );
+  const rainbow = await getHandCard(gustPlayer, (c) => c.id === "base5-17");
+  const rainbowTarget = a
+    .compute_render_state()
+    .players.find((p) => p.id === gustPlayer).active;
+  const afterRainbow = await synchronizedMove(gustPlayer, "play", {
+    uid: rainbow.uid,
+    target: rainbowTarget.uid,
+  });
+  const attached = afterRainbow.players.find((p) => p.id === gustPlayer).active;
+  assert.equal(attached.damage, rainbowTarget.damage + 10);
+  assert.equal(attached.energy.at(-1), "base5-17");
+  assert.equal(afterRainbow.turn, 3);
+  console.log(
+    "PASS: Rainbow Energy attachment and its damage agree on all five independent clients",
   );
   console.log("MULTIPLAYER INTEGRATION PASSED");
 } finally {
