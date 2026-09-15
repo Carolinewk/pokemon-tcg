@@ -104,6 +104,7 @@ import {
 import { playSound } from "@/lib/audio";
 import type { connectTable } from "@/lib/network";
 import { publicPath } from "@/lib/public-path";
+import { compareCardRelease, formatCardRelease, type ReleaseOrder } from "@/lib/catalog";
 
 const STARTER_CATALOG = Object.fromEntries(
   (starterData as Card[]).map((c) => [c.id, c]),
@@ -281,6 +282,7 @@ export default function Home() {
   const [query, setQuery] = useState(""),
     [typeFilter, setTypeFilter] = useState("all"),
     [setFilter, setSetFilter] = useState("all"),
+    [releaseOrder, setReleaseOrder] = useState<ReleaseOrder>("newest"),
     [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Deck | null>(null),
     [target, setTarget] = useState(""),
@@ -619,7 +621,10 @@ export default function Home() {
       toast.info(`Room code: ${room}`);
     }
   };
-  const cards = useMemo(() => Object.values(catalog), [catalog]);
+  const cards = useMemo(
+    () => Object.values(catalog).sort((a, b) => compareCardRelease(a, b, releaseOrder)),
+    [catalog, releaseOrder],
+  );
   const sets = useMemo(
     () =>
       Array.from(
@@ -1968,13 +1973,26 @@ export default function Home() {
                     }}
                     options={[{ value: "all", label: "All sets" }, ...sets]}
                   />
+                  <Choice
+                    collection
+                    label="Release date order"
+                    value={releaseOrder}
+                    onChange={(value) => {
+                      setReleaseOrder(value === "oldest" ? "oldest" : "newest");
+                      setPage(0);
+                    }}
+                    options={[
+                      { value: "newest", label: "Newest first" },
+                      { value: "oldest", label: "Oldest first" },
+                    ]}
+                  />
                 </div>
                 <div className="catalog-caption">
                   <span>
                     {filtered.length.toLocaleString()} cards{" "}
                     {query && `matching “${query}”`}
                   </span>
-                  <span>Newest sets first</span>
+                  <span>Release date · {releaseOrder === "newest" ? "Newest first" : "Oldest first"}</span>
                 </div>
                 <div className="card-grid">
                   {filtered.slice(page * 36, page * 36 + 36).map((c) => (
@@ -1992,6 +2010,13 @@ export default function Home() {
                       <p>
                         {c.set} · {c.number}
                       </p>
+                      {c.date && (
+                        <p>
+                          <time dateTime={c.date.replaceAll("/", "-")}>
+                            {formatCardRelease(c.date)}
+                          </time>
+                        </p>
+                      )}
                       {editing && (
                         <div className="quantity-buttons">
                           <button
