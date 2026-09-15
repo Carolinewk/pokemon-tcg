@@ -282,7 +282,7 @@ export default function Home() {
   const [query, setQuery] = useState(""),
     [typeFilter, setTypeFilter] = useState("all"),
     [setFilter, setSetFilter] = useState("all"),
-    [releaseOrder, setReleaseOrder] = useState<ReleaseOrder>("newest"),
+    [releaseOrder, setReleaseOrder] = useState<ReleaseOrder>("oldest"),
     [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Deck | null>(null),
     [target, setTarget] = useState(""),
@@ -1978,12 +1978,12 @@ export default function Home() {
                     label="Release date order"
                     value={releaseOrder}
                     onChange={(value) => {
-                      setReleaseOrder(value === "oldest" ? "oldest" : "newest");
+                      setReleaseOrder(value === "newest" ? "newest" : "oldest");
                       setPage(0);
                     }}
                     options={[
-                      { value: "newest", label: "Newest first" },
                       { value: "oldest", label: "Oldest first" },
+                      { value: "newest", label: "Newest first" },
                     ]}
                   />
                 </div>
