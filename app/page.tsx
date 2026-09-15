@@ -16,7 +16,6 @@ import {
   Menu,
   Volume2,
   VolumeX,
-  CircleHelp,
   ArrowUpRight,
   ArrowRight,
   ChevronLeft,
@@ -92,8 +91,6 @@ import {
   isBasic,
   allPieces,
   deckError,
-  canPay,
-  automaticAttack,
   type Card,
   type Catalog,
   type Piece,
@@ -114,7 +111,7 @@ import {
   pieceEffectLabels,
   RevealedCardsDialog,
 } from "@/components/effect-choice";
-import { POWERS, availablePowers } from "@/lib/effects/classic/powers";
+import { BoardCardMoves } from "@/components/board-card-moves";
 import * as classic from "@/lib/effects/classic/state";
 import {
   attachmentEnergy,
@@ -303,7 +300,6 @@ export default function Home() {
     [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Deck | null>(null),
     [target, setTarget] = useState(""),
-    [attackAmount, setAttackAmount] = useState("0"),
     [detailTab, setDetailTab] = useState("card");
   const [zone, setZone] = useState<"deck" | "discard" | "prizes" | "hand">(
       "discard",
@@ -343,16 +339,6 @@ export default function Home() {
     : selection
       ? catalog[selection.card]
       : undefined;
-  const selectedPowers = selectedPiece
-    ? availablePowers(state, selectedPiece, catalog)
-    : [];
-  const selectedAttacks = selectedPiece
-    ? classic.attackOptions(state, selectedPiece, catalog)
-    : selectedCard?.attacks.map((attack, index) => ({
-        attack,
-        index,
-        card: selectedCard,
-      })) || [];
   const babyTarget =
     selectedCard && me
       ? allPieces(me).some((p) =>
@@ -628,12 +614,11 @@ export default function Home() {
       toast.error("Could not connect to the table. Try again.");
     }
   };
-  const inspect = (s: Selection) => {
+  const inspect = (s: Selection, openInspector = true) => {
     setSelection(s);
     setTarget("");
-    setAttackAmount("0");
     setDetailTab("card");
-    setInspectorOpen(true);
+    setInspectorOpen(openInspector);
     if (sound) playSound("card");
   };
   const playSelected = () => {
@@ -796,6 +781,28 @@ export default function Home() {
       : undefined;
     const own = owner?.id === pid;
     const selected = selection?.uid === p?.uid && !!p;
+    const cardButton =
+      p && c ? (
+        <button
+          className="table-card"
+          aria-label={`${own ? "Choose moves for" : "Inspect"} ${owner?.name}'s ${c.name}, ${Math.max(0, c.hp - p.damage)} HP`}
+          onClick={() =>
+            inspect({ card: p.card, uid: p.uid, owner: owner?.id, zone }, !own)
+          }
+        >
+          <>
+            {p.faceDown ? (
+              <CardBack />
+            ) : (
+              <CardImage card={c} small={zone === "bench"} />
+            )}
+          </>
+          {p.damage > 0 && <span className="damage-counter">{p.damage}</span>}
+          {p.conditions.length > 0 && (
+            <span className="condition-chip">{p.conditions.join(" · ")}</span>
+          )}
+        </button>
+      ) : null;
     return (
       <div
         className={`table-slot ${zone} ${p ? "occupied" : ""} ${selected ? "selected" : ""}`}
@@ -812,29 +819,24 @@ export default function Home() {
       >
         {p && c ? (
           <>
-            <button
-              className="table-card"
-              aria-label={`Inspect ${owner?.name}'s ${c.name}, ${Math.max(0, c.hp - p.damage)} HP`}
-              onClick={() =>
-                inspect({ card: p.card, uid: p.uid, owner: owner?.id, zone })
-              }
-            >
-              <>
-                {p.faceDown ? (
-                  <CardBack />
-                ) : (
-                  <CardImage card={c} small={zone === "bench"} />
-                )}
-              </>
-              {p.damage > 0 && (
-                <span className="damage-counter">{p.damage}</span>
-              )}
-              {p.conditions.length > 0 && (
-                <span className="condition-chip">
-                  {p.conditions.join(" · ")}
-                </span>
-              )}
-            </button>
+            {own && owner ? (
+              <BoardCardMoves
+                key={p.uid}
+                piece={p}
+                player={owner}
+                state={state}
+                catalog={catalog}
+                renderEnergy={(type) => <Energy type={type} size={13} />}
+                onAction={send}
+                onInspect={() =>
+                  inspect({ card: p.card, uid: p.uid, owner: owner.id, zone })
+                }
+              >
+                {cardButton!}
+              </BoardCardMoves>
+            ) : (
+              cardButton
+            )}
             <div className="attached-energy">
               {providedEnergy(p, catalog, state)
                 .slice(0, 6)
@@ -1026,20 +1028,6 @@ export default function Home() {
                 )}
                 <span className="detail-image-glow" />
               </div>
-              <div className="detail-title">
-                <h2>{selectedCard.name}</h2>
-                {selectedCard.types[0] && (
-                  <Energy type={selectedCard.types[0]} size={23} />
-                )}
-              </div>
-              <div className="detail-subtitle">
-                {selectedCard.subtypes.join(" · ") || selectedCard.supertype}
-                <span>
-                  {selectedCard.hp
-                    ? `${selectedCard.hp} HP`
-                    : selectedCard.supertype}
-                </span>
-              </div>
               {selectedPiece && (
                 <div className="piece-stats">
                   <span>
@@ -1085,151 +1073,6 @@ export default function Home() {
                     ))}
                 </div>
               )}
-              {(selectedPiece
-                ? classic
-                    .abilityCards(state, selectedPiece, catalog)
-                    .flatMap((c) => c.abilities)
-                : selectedCard.abilities
-              ).map((a, i) => (
-                <div className="ability" key={i}>
-                  <small>{a.type}</small>
-                  <strong>{a.name}</strong>
-                  <p>{a.text}</p>
-                  {selectedPiece &&
-                    selection?.owner === pid &&
-                    selectedPowers.find((p) => p.name === a.name)?.use && (
-                      <button
-                        className="button primary full-width"
-                        disabled={
-                          !myTurn ||
-                          !classic.powerOn(
-                            state,
-                            selectedPiece,
-                            catalog,
-                            a.name,
-                          )
-                        }
-                        onClick={() => {
-                          if (
-                            send("power", {
-                              uid: selectedPiece.uid,
-                              index: selectedPowers
-                                .filter((p) => p.use)
-                                .findIndex((p) => p.name === a.name),
-                            })
-                          )
-                            setInspectorOpen(false);
-                        }}
-                      >
-                        <Sparkles size={15} /> Use {a.name}
-                      </button>
-                    )}
-                  {(selectedPiece
-                    ? selectedPowers.find((p) => p.name === a.name)?.passive
-                    : POWERS[selectedCard.id]?.passive) && (
-                    <small>
-                      This Power applies automatically while its conditions are
-                      met.
-                    </small>
-                  )}
-                </div>
-              ))}
-              {selectedAttacks.map(({ attack: a, card: attackCard }, i) => {
-                const attacking =
-                  selection?.zone === "active" && selection.owner === pid;
-                const payable =
-                  !!selectedPiece && canPay(selectedPiece, a, catalog, state);
-                const disabledByEffect =
-                  (selectedPiece &&
-                    (classic.mark(state, selectedPiece, "noAttack") ||
-                      classic.mark(state, selectedPiece, "attackDisabled")
-                        ?.name === a.name ||
-                      (opponent?.active &&
-                        classic.mark(state, selectedPiece, "cannotAttackSource")
-                          ?.source === opponent.active.uid))) ||
-                  selectedPiece?.usedAttacks?.includes(a.name) ||
-                  (selectedPiece?.effects?.amnesia?.name === a.name &&
-                    selectedPiece.effects.amnesia.until >= state.turn);
-                return (
-                  <div className="attack-detail" key={i}>
-                    <div className="attack-top">
-                      <span className="attack-energy">
-                        {a.cost.map((t, j) => (
-                          <Energy type={t} size={15} key={j} />
-                        ))}
-                      </span>
-                      <strong>{a.damage || "—"}</strong>
-                    </div>
-                    <h3>{a.name}</h3>
-                    {a.text && <p>{a.text}</p>}
-                    {attacking && (
-                      <>
-                        {!automaticAttack(attackCard, a) && (
-                          <label className="manual-damage">
-                            Damage before weakness
-                            <input
-                              type="number"
-                              min="0"
-                              max="9990"
-                              step="10"
-                              value={attackAmount}
-                              onChange={(e) => setAttackAmount(e.target.value)}
-                            />
-                          </label>
-                        )}
-                        <button
-                          className="attack-button"
-                          disabled={
-                            !myTurn ||
-                            !payable ||
-                            !!disabledByEffect ||
-                            state.turn === 1 ||
-                            selectedPiece?.conditions.some((c) =>
-                              ["Asleep", "Paralyzed"].includes(c),
-                            )
-                          }
-                          onClick={() => {
-                            if (
-                              send("attack", {
-                                index: i,
-                                damage: Number(attackAmount),
-                              })
-                            )
-                              setInspectorOpen(false);
-                          }}
-                        >
-                          <Swords size={14} />
-                          {!myTurn
-                            ? "Wait for your turn"
-                            : !payable
-                              ? "More Energy needed"
-                              : disabledByEffect
-                                ? "This attack is unavailable"
-                                : `Use ${a.name}`}
-                          <ArrowUpRight size={14} />
-                        </button>
-                        {!automaticAttack(attackCard, a) && (
-                          <small className="manual-note">
-                            Resolve printed effects with table tools before
-                            attacking.
-                          </small>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-              {selectedPiece?.faceDown && selection?.owner === pid && (
-                <button
-                  className="button full-width"
-                  disabled={!myTurn}
-                  onClick={() =>
-                    send("revealPiece", { uid: selectedPiece.uid })
-                  }
-                >
-                  Reveal Pokémon
-                </button>
-              )}
               {state.stadium?.card === selectedCard.id &&
                 ["gym1-107", "gym2-114", "gym2-122"].includes(
                   selectedCard.id,
@@ -1240,26 +1083,6 @@ export default function Home() {
                     onClick={() => send("stadium")}
                   >
                     Use {selectedCard.name}
-                  </button>
-                )}
-              {selectedCard.rules.length > 0 && (
-                <div className="card-rules">
-                  {selectedCard.rules.map((r, i) => (
-                    <p key={i}>{r}</p>
-                  ))}
-                </div>
-              )}
-              {selectedPiece &&
-                ["base1-70", "base3-62"].includes(selectedPiece.card) &&
-                selection?.owner === pid && (
-                  <button
-                    className="button full-width"
-                    disabled={!myTurn}
-                    onClick={() =>
-                      send("discardDoll", { uid: selectedPiece.uid })
-                    }
-                  >
-                    <Trash2 size={15} /> Discard {selectedCard.name}
                   </button>
                 )}
               {selection?.zone === "hand" && (
@@ -1317,68 +1140,13 @@ export default function Home() {
                   </button>
                 </div>
               )}
-              {selection?.zone === "bench" && selection.owner === pid && (
-                <button
-                  className="button primary full-width"
-                  disabled={!!me?.active && !myTurn}
-                  onClick={() => {
-                    send(me?.active ? "retreat" : "promote", {
-                      uid: selection.uid,
-                    });
-                    setInspectorOpen(false);
-                  }}
-                >
-                  <RotateCcw size={15} />
-                  {me?.active
-                    ? `Retreat Active · ${classic.retreatCost(state, me, catalog)} Energy`
-                    : "Promote to Active"}
-                </button>
-              )}
-              {selectedCard.supertype === "Pokémon" && (
-                <div className="card-traits">
-                  <span>
-                    Weakness
-                    <b>
-                      {selectedCard.weaknesses.map((w) => (
-                        <span key={w.type}>
-                          <Energy type={w.type} size={14} />
-                          {w.value}
-                        </span>
-                      )) || "—"}
-                    </b>
-                  </span>
-                  <span>
-                    Resistance
-                    <b>
-                      {selectedCard.resistances.length
-                        ? selectedCard.resistances.map((r) => r.value).join(" ")
-                        : "—"}
-                    </b>
-                  </span>
-                  <span>
-                    Retreat
-                    <b>
-                      {selectedCard.retreat}
-                      <Sparkles size={13} />
-                    </b>
-                  </span>
-                </div>
-              )}
-              <div className="card-provenance">
-                <span>{selectedCard.set}</span>
-                <b>
-                  {selectedCard.number} ·{" "}
-                  {selectedCard.rarity || selectedCard.supertype}
-                </b>
-              </div>
             </div>
           ) : (
             <div className="inspector-empty">
               <Layers3 size={36} strokeWidth={1} />
               <h2>A closer look.</h2>
               <p>
-                Select a card on the table or in your hand to see its attacks
-                and available moves.
+                Select a card on the table or in your hand for a closer look.
               </p>
               <div className="mini-tip">
                 <Sparkles size={20} />
@@ -1414,16 +1182,6 @@ export default function Home() {
           </div>
         </TabsContent>
       </Tabs>
-      <div className="inspector-bottom">
-        <span>
-          <CircleHelp size={17} />
-          <b>Find your next move.</b>
-        </span>
-        <p>Take your time. Inspect your cards. Find your next great move.</p>
-        <button onClick={() => setDialog("help")}>
-          The table guide <ArrowUpRight size={14} />
-        </button>
-      </div>
     </>
   );
   const navigateTo = (next: typeof screen) => {
