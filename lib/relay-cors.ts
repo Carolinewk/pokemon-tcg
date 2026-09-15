@@ -1,10 +1,6 @@
-const pagesOrigin = "https://carolinewk.github.io";
-
 export function relayOriginAllowed(request: Request) {
   const origin = request.headers.get("origin");
-  return (
-    !origin || origin === new URL(request.url).origin || origin === pagesOrigin
-  );
+  return !origin || origin === new URL(request.url).origin;
 }
 
 export function relayHeaders(request: Request) {

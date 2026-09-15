@@ -104,7 +104,6 @@ import {
 } from "@/lib/game";
 import { playSound } from "@/lib/audio";
 import type { connectTable } from "@/lib/network";
-import { publicPath } from "@/lib/public-path";
 import {
   compareCardRelease,
   formatCardRelease,
@@ -141,7 +140,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 const imageUrl = (c: Card, small = false) =>
   LOCAL_IMAGES.has(c.id)
-    ? publicPath(`cards/${c.id}.png`)
+    ? `/cards/${c.id}.png`
     : small
       ? c.small || c.image
       : c.image;
@@ -376,7 +375,7 @@ export default function Home() {
   const fetchCatalog = useCallback(async () => {
     setCatalogError(false);
     try {
-      const response = await fetch(publicPath("data/cards.json"));
+      const response = await fetch("/data/cards.json");
       if (!response.ok) throw Error("Card catalog unavailable");
       const cards: Card[] = await response.json();
       setCatalog(Object.fromEntries(cards.map((c) => [c.id, c])));

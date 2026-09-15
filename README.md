@@ -41,29 +41,14 @@ npm run dev
 
 Open http://localhost:5174. The development server requires port 5174 to be available.
 
-## GitHub Pages
-
-The Pages build uses the same game, deck builder, card catalog, and themes as the hosted app. `github-pages/main.tsx` is a static React entry point; the existing Vinext build continues to serve the multiplayer API.
-
-GitHub Pages cannot run the multiplayer API or its database. The public relay must serve `/api/relay` and permit the Pages origin through CORS. This project's relay permits `https://carolinewk.github.io`; update `lib/relay-cors.ts` when publishing under a different GitHub account.
-
-```sh
-POKETABLE_RELAY_ORIGIN=https://pokemon-table-caroline.carolinenunesjk.chatgpt.site POKETABLE_BASE_PATH=/pokemon-tcg/ npm run build:pages
-npm run preview:pages
-```
-
-`dist-pages/` contains only the static frontend and public card assets. The build requires `POKETABLE_RELAY_ORIGIN` so a Pages deployment cannot silently point multiplayer at a missing local API. Do not put authentication tokens in this value; it becomes public frontend configuration. The backend must allow anonymous access for invited friends to connect.
-
-The GitHub repository variable `POKETABLE_RELAY_ORIGIN` configures the backend. Set the Pages publishing source to **GitHub Actions**; `.github/workflows/pages.yml` publishes pushes to `main` and obtains the repository's asset base path from GitHub. All card art and catalog requests respect this base path, including room invite links.
-
 For local multiplayer, build and initialize the local D1 database once:
 
 ```sh
 npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_easy_purifiers.sql
+node --import ./scripts/wrangler-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_easy_purifiers.sql
 ```
 
-Do not reapply an already applied migration. Production migrations are included in the Sites deployment. `.openai/hosting.json` contains only the logical DB binding and the registered Site identifier.
+Do not reapply an already applied migration. Apply `drizzle/` migrations to the production D1 database as part of deploying the Worker.
 
 ## Verification
 
@@ -75,7 +60,7 @@ POKETABLE_TEST_ORIGIN=http://localhost:5174 npm run test:multiplayer
 npm run build
 ```
 
-The tests cover all 1,053 registered attacks (including heads and tails), each Trainer and activated/on-play Power, special Energy, Metronome copying every Base Set attack, effect timing and protection, simultaneous Knock Outs, valid and invalid choices, and conservation of every physical card. Targeted cases cover Ditto, Shapeshift, Baby Pokémon, Char, Wild Growth, Slowking, Chaos Gym, Sabrina’s ESP, and other distinct interactions. The existing 100 seeded openings and 24 complete simulated matches remain covered. The multiplayer test runs independent VibiNet clients against the HTTP/D1 relay and checks Computer Search, an opponent's Whirlwind choice, both players’ Double Gust choices, Rainbow Energy, reconnect during pending effects, exact replay, and rejection of a third seat. GitHub Pages runs the game tests before deployment.
+The tests cover all 1,053 registered attacks (including heads and tails), each Trainer and activated/on-play Power, special Energy, Metronome copying every Base Set attack, effect timing and protection, simultaneous Knock Outs, valid and invalid choices, and conservation of every physical card. Targeted cases cover Ditto, Shapeshift, Baby Pokémon, Char, Wild Growth, Slowking, Chaos Gym, Sabrina’s ESP, and other distinct interactions. The existing 100 seeded openings and 24 complete simulated matches remain covered. The multiplayer test runs independent VibiNet clients against the HTTP/D1 relay and checks Computer Search, an opponent's Whirlwind choice, both players’ Double Gust choices, Rainbow Energy, reconnect during pending effects, exact replay, and rejection of a third seat.
 
 Refresh the data snapshot with `npm run cards:sync`. This downloads the upstream public JSON dataset and starter art; review the count and update the rules/catalog namespace before publishing an incompatible snapshot.
 
