@@ -50,12 +50,6 @@
   background: var(--card);
   border-color: var(--border);
 }
-.dark .navigation-reveal .app-header {
-  box-shadow: 0 8px 24px #0006;
-}
-.dark .navigation-handle span {
-  background: var(--muted-foreground);
-}
 .dark :is(.main-nav button, .icon-button, .text-button) {
   color: var(--muted-foreground);
 }
@@ -344,14 +338,4 @@
 .dark .card-fallback {
   background: linear-gradient(#304935, #192b21);
   color: var(--foreground);
-}
-
-/* Keep all navigation actions reachable on narrow touch screens. */
-@media (max-width: 400px) {
-  .navigation-reveal .main-nav button {
-    padding-inline: 5px;
-  }
-  .navigation-reveal .header-end .icon-button {
-    padding: 7px;
-  }
 }

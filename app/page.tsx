@@ -13,6 +13,7 @@ import {
   Swords,
   Layers3,
   LibraryBig,
+  Menu,
   Volume2,
   VolumeX,
   CircleHelp,
@@ -65,6 +66,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetClose,
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
@@ -270,7 +272,7 @@ export default function Home() {
     [catalogError, setCatalogError] = useState(false);
   const [screen, setScreen] = useState<"table" | "cards" | "decks">("table");
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const workspaceRef = useRef<HTMLElement>(null);
+  const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const [state, setState] = useState<GameState>(() =>
     makePractice(STARTER_CATALOG),
   );
@@ -1429,51 +1431,57 @@ export default function Home() {
     if (next === "cards") setEditing(null);
     setScreen(next);
     setNavigationOpen(false);
-    workspaceRef.current?.focus({ preventScroll: true });
   };
+  const navigationButton = (
+    <button
+      ref={navigationButtonRef}
+      type="button"
+      className="icon-button navigation-toggle"
+      aria-label="Open navigation menu"
+      aria-haspopup="dialog"
+      aria-expanded={navigationOpen}
+      aria-controls="main-navigation"
+      onClick={() => setNavigationOpen(true)}
+    >
+      <Menu size={20} aria-hidden="true" />
+    </button>
+  );
   return (
     <div className={`app-shell ${screen === "table" ? "is-playing" : ""}`}>
-      <div
-        className={`navigation-reveal ${navigationOpen ? "is-open" : ""}`}
-        onPointerLeave={(event) => {
-          if (event.pointerType !== "mouse") return;
-          setNavigationOpen(false);
-          const focused = document.activeElement;
-          if (
-            focused &&
-            event.currentTarget.contains(focused) &&
-            !focused.matches(":focus-visible")
-          ) {
-            workspaceRef.current?.focus({ preventScroll: true });
-          }
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            setNavigationOpen(false);
-            workspaceRef.current?.focus({ preventScroll: true });
-          }
-        }}
-      >
-        <button
-          className="navigation-handle"
-          aria-label={navigationOpen ? "Hide navigation" : "Show navigation"}
-          aria-expanded={navigationOpen}
-          aria-controls="top-navigation"
-          onClick={() => {
-            setNavigationOpen(!navigationOpen);
-            workspaceRef.current?.focus({ preventScroll: true });
+      <Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>
+        <SheetContent
+          id="main-navigation"
+          className="navigation-menu"
+          side="left"
+          showCloseButton={false}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (!dialog)
+              navigationButtonRef.current?.focus({ preventScroll: true });
           }}
         >
-          <span aria-hidden="true" />
-        </button>
-        <header className="app-header" id="top-navigation">
-          <nav className="main-nav" aria-label="Main navigation">
+          <div className="navigation-menu-heading">
+            <SheetTitle>Menu</SheetTitle>
+            <SheetClose asChild>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close navigation menu"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </SheetClose>
+          </div>
+          <SheetDescription className="sr-only">
+            Go to your play table, decks, card library, or Trainer profile.
+          </SheetDescription>
+          <nav className="navigation-menu-links" aria-label="Main navigation">
             <button
               className={screen === "table" ? "current" : ""}
               aria-current={screen === "table" ? "page" : undefined}
               onClick={() => navigateTo("table")}
             >
-              <Swords size={17} />
+              <Swords size={20} aria-hidden="true" />
               Play
             </button>
             <button
@@ -1481,7 +1489,7 @@ export default function Home() {
               aria-current={screen === "decks" ? "page" : undefined}
               onClick={() => navigateTo("decks")}
             >
-              <Layers3 size={17} />
+              <Layers3 size={20} aria-hidden="true" />
               My decks
             </button>
             <button
@@ -1489,53 +1497,65 @@ export default function Home() {
               aria-current={screen === "cards" ? "page" : undefined}
               onClick={() => navigateTo("cards")}
             >
-              <LibraryBig size={17} />
+              <LibraryBig size={20} aria-hidden="true" />
               Card library
             </button>
+            <button
+              onClick={() => {
+                setNavigationOpen(false);
+                setDialog("room");
+              }}
+            >
+              <span className="avatar" aria-hidden="true">
+                {name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="navigation-profile-label">
+                Profile
+                <small>{name}</small>
+              </span>
+            </button>
           </nav>
-          <div className="header-end">
+          <div
+            className="navigation-menu-tools"
+            role="group"
+            aria-label="Appearance and sound"
+          >
             <ThemeToggle />
             <button
               className="icon-button sound-toggle"
               aria-label={sound ? "Mute sounds" : "Enable sounds"}
+              aria-pressed={sound}
               onClick={() => setSound(!sound)}
             >
               {sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
             </button>
-            <button
-              className="avatar"
-              onClick={() => setDialog("room")}
-              aria-label="Trainer profile"
-            >
-              {name.slice(0, 1).toUpperCase()}
-            </button>
           </div>
-        </header>
-      </div>
+        </SheetContent>
+      </Sheet>
       <main
-        ref={workspaceRef}
-        tabIndex={-1}
-        onPointerDown={() => setNavigationOpen(false)}
         className={`workspace ${screen !== "table" ? "library-workspace" : ""}`}
       >
         {screen === "table" ? (
           <>
             <section className="play-surface">
               <div className="page-heading">
-                {mode === "online" && (
-                  <div className="title-line">
-                    <span className="soft-badge">
-                      <span
-                        className={`live-dot ${connection !== "connected" ? "pending" : ""}`}
-                      />
-                      {connection === "connected"
-                        ? `ROOM ${room}`
-                        : connection === "connecting"
-                          ? "CONNECTING…"
-                          : "OFFLINE"}
-                    </span>
-                  </div>
-                )}
+                <div className="table-heading-start">
+                  {navigationButton}
+                  {mode === "online" && (
+                    <div className="title-line">
+                      <span className="soft-badge">
+                        <span
+                          className={`live-dot ${connection !== "connected" ? "pending" : ""}`}
+                        />
+                        {connection === "connected"
+                          ? `ROOM ${room}`
+                          : connection === "connecting"
+                            ? "CONNECTING…"
+                            : "OFFLINE"}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="table-heading-actions">
                   <button
                     className="text-button"
@@ -1899,10 +1919,13 @@ export default function Home() {
         ) : screen === "decks" ? (
           <section className="decks-page collection-ui">
             <div className="collection-heading">
-              <div>
-                <span className="eyebrow">TRAINER’S PC</span>
-                <h1>My decks</h1>
-                <p>Pick a ready-to-play deck, or make it your own.</p>
+              <div className="collection-heading-title">
+                {navigationButton}
+                <div>
+                  <span className="eyebrow">TRAINER’S PC</span>
+                  <h1>My decks</h1>
+                  <p>Pick a ready-to-play deck, or make it your own.</p>
+                </div>
               </div>
               <button
                 className="button primary"
@@ -2107,16 +2130,19 @@ export default function Home() {
             className={`library-page collection-ui ${editing ? "building-deck" : ""}`}
           >
             <div className="collection-heading">
-              <div>
-                <span className="eyebrow">POKÉMON TCG</span>
-                <h1>{editing ? "Deck builder" : "Card library"}</h1>
-                <p>
-                  {loaded
-                    ? "20,444 English cards. 174 sets. Endless possibilities."
-                    : catalogError
-                      ? "The full catalog could not load. Starter cards are available."
-                      : "Loading the complete English collection…"}
-                </p>
+              <div className="collection-heading-title">
+                {navigationButton}
+                <div>
+                  <span className="eyebrow">POKÉMON TCG</span>
+                  <h1>{editing ? "Deck builder" : "Card library"}</h1>
+                  <p>
+                    {loaded
+                      ? "20,444 English cards. 174 sets. Endless possibilities."
+                      : catalogError
+                        ? "The full catalog could not load. Starter cards are available."
+                        : "Loading the complete English collection…"}
+                  </p>
+                </div>
               </div>
               {editing ? (
                 <button
