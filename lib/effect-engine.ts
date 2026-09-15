@@ -30,6 +30,7 @@ import {
   powerAvailable,
 } from "./effects/base-set/powers";
 import { trainerHandler, TrainerContext } from "./effects/base-set/trainers";
+import { clefairyDollRules } from "./effects/base-set/modifiers";
 
 function attack(c: EffectContext, intent: EffectIntent) {
   const a = c.player.active,
@@ -143,7 +144,10 @@ function power(c: EffectContext, intent: EffectIntent) {
 }
 function retreat(c: EffectContext, intent: EffectIntent) {
   const a = c.player.active;
-  c.require(a && a.card !== "base1-70", "This Pokémon cannot retreat.");
+  c.require(
+    a && clefairyDollRules(a.card).canRetreat,
+    "This Pokémon cannot retreat.",
+  );
   c.require(!c.player.retreated, "You have already retreated this turn.");
   c.require(
     !a.conditions.some((x) => ["Asleep", "Paralyzed"].includes(x)),
@@ -201,7 +205,10 @@ function retreat(c: EffectContext, intent: EffectIntent) {
 }
 function discardDoll(c: EffectContext, intent: EffectIntent) {
   const doll = findPiece(c.player, intent.uid);
-  c.require(doll?.card === "base1-70", "Choose your Clefairy Doll in play.");
+  c.require(
+    doll && clefairyDollRules(doll.card).canDiscardVoluntarily,
+    "Choose your Clefairy Doll in play.",
+  );
   discardAttachments(c.state, c.player, doll);
   c.player.discard.push({ uid: doll.uid, card: doll.card });
   removePiece(c.player, doll);

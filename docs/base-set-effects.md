@@ -10,6 +10,7 @@ The supported set is the 102-card English `base1` set in the bundled catalog. It
 | `lib/effects/base-set/powers.ts` | Five activated Powers and Machamp's passive Strikes Back, each in its own function |
 | `lib/effects/base-set/trainers.ts` | One function per Trainer, with small helpers for moving cards and healing |
 | `lib/effects/base-set/energy.ts` | Seven Energy providers, Buzzap's chosen type, Energy Burn, and Energy-unit payment |
+| `lib/effects/base-set/modifiers.ts` | Separate continuous-effect functions for Clefairy Doll, PlusPower, and Defender |
 | `lib/effects/context.ts` | Choice validation and shared attack operations: damage, conditions, protection, costs, and switching |
 | `lib/effect-engine.ts` | Transaction boundaries, legality, dispatch, completion, and pending choices |
 | `lib/game-core.ts` | General state operations, shuffling, turns, attachment movement, and Knock Outs |

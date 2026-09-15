@@ -19,6 +19,11 @@ import {
   switchActive,
 } from "../game-core";
 import { attachmentEnergy, providedEnergy } from "./base-set/energy";
+import {
+  clefairyDollRules,
+  defenderReduction,
+  plusPowerBonus,
+} from "./base-set/modifiers";
 
 export class EffectError extends Error {}
 export class NeedsChoice extends Error {
@@ -283,20 +288,9 @@ export class AttackContext extends EffectContext {
       if (resist && attacking.types.includes(resist.type))
         amount = Math.max(0, amount + Number(resist.value));
     }
-    if (amount > 0 && isDefender)
-      amount +=
-        10 *
-        (this.attacker.trainerAttachments || []).filter(
-          (t) => t.card === "base1-84" && t.expires >= this.state.turn,
-        ).length;
-    amount = Math.max(
-      0,
-      amount -
-        20 *
-          (target.trainerAttachments || []).filter(
-            (t) => t.card === "base1-80" && t.expires >= this.state.turn,
-          ).length,
-    );
+    if (isDefender)
+      amount += plusPowerBonus(this.attacker, this.state.turn, amount);
+    amount = Math.max(0, amount - defenderReduction(target, this.state.turn));
     if (
       this.effectsBlocked(target) ||
       (target.effects?.preventDamageUntil ?? -1) >= this.state.turn ||
@@ -320,7 +314,11 @@ export class AttackContext extends EffectContext {
     this.hit(amount, this.attacker);
   }
   status(name: string, poisonDamage = 10) {
-    if (this.effectsBlocked() || this.defender.card === "base1-70") return;
+    if (
+      this.effectsBlocked() ||
+      clefairyDollRules(this.defender.card).immuneToConditions
+    )
+      return;
     condition(this.defender, name);
     const result = this.record();
     result.conditions.push(name);

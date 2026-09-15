@@ -7,6 +7,7 @@ import type {
   GameState,
 } from "./game-types";
 export { energyType } from "./effects/base-set/energy";
+import { clefairyDollRules } from "./effects/base-set/modifiers";
 export const hash = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -89,7 +90,7 @@ export function flip(s: GameState) {
   return heads;
 }
 export function condition(c: Piece, name: string) {
-  if (c.card === "base1-70") return;
+  if (clefairyDollRules(c.card).immuneToConditions) return;
   if (["Asleep", "Confused", "Paralyzed"].includes(name))
     c.conditions = c.conditions.filter(
       (x) => !["Asleep", "Confused", "Paralyzed"].includes(x),
@@ -193,7 +194,7 @@ export function checkKnockouts(s: GameState, catalog: Catalog) {
             )
           ? 2
           : 1;
-      if (c.card !== "base1-70") awards.push([1 - i, prizes]);
+      if (clefairyDollRules(c.card).awardsPrizes) awards.push([1 - i, prizes]);
       log(s, `${card.name} was Knocked Out!`, "knockout");
       effect(s, "knockout", `${card.name} • Knocked Out`);
     }
